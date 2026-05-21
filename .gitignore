@@ -24,6 +24,7 @@ data/*.db-journal
 data/*.db-shm
 data/*.db-wal
 data/*.log
+data/command/
 
 # --- macOS ---
 .DS_Store

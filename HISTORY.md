@@ -10,6 +10,14 @@
 
 ## 2026-05-21
 
+### Daily Brief Installed — Pipeline Metrics Delivered to Telegram
+- Gemini-powered morning brief using `gemini-2.5-flash-lite` (free tier, 1 call/day)
+- 6-stage sales funnel defined in `context/funnel.md` — Prospect to Handoff Complete, targets in ZAR
+- `scripts/` module installed: `metrics.py`, `prompt.py`, `deliver.py`, `dashboard.py`, `daily_brief.py`
+- Pipeline data live: 1 Active Prospect (Lourens Delport) confirmed in `pipeline_daily` SQLite view
+- First client context file added: `context/clients/lourens-delport.md`
+- Scheduled task still needed — currently runs manually via `venv\Scripts\python scripts\daily_brief.py`
+
 ### CommandOS Installed — Telegram Bot Live
 - Telegram group "AIOS Workplace" created, bot (@HeinrichAIOS_bot) connected and verified
 - `apps/command/` installed: aiogram bot with Claude Agent SDK — persistent sessions, voice notes, PDF/chart support

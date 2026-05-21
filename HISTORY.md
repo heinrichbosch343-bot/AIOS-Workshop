@@ -8,6 +8,16 @@
 
 ---
 
+## 2026-05-21
+
+### CommandOS Installed — Telegram Bot Live
+- Telegram group "AIOS Workplace" created, bot (@HeinrichAIOS_bot) connected and verified
+- `apps/command/` installed: aiogram bot with Claude Agent SDK — persistent sessions, voice notes, PDF/chart support
+- Windows compatibility fixes applied: `fcntl` shim, UTF-8 stdout, Python 3.10 f-string fix
+- Auto-start configured via Windows Startup folder (silent background launch on login)
+- `TELEGRAM_GROUP_ID` and `TELEGRAM_CHAT_ID` set in `.env`
+- CommandOS documented in `docs/command-os.md`
+
 ## 2026-05-19
 
 ### DataOS and IntelOS Installed

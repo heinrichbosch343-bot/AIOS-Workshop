@@ -1,0 +1,101 @@
+# My Workspace — CLAUDE.md
+
+> This file is read by every Claude Code agent that operates in this workspace.
+> It is the single most important file for agent quality — the more context you
+> provide here, the smarter every interaction will be.
+>
+> Delete these instruction comments and fill in each section for your business.
+
+## What This Is
+
+<!-- Describe your business or project in 2-3 sentences. Be specific. -->
+<!-- Example: "Strategic command center for Acme Corp, a SaaS company selling -->
+<!-- project management tools to mid-market companies. Revenue: $2M ARR, -->
+<!-- team of 15, Series A." -->
+
+{Describe your business or project here}
+
+## Key Files
+
+<!-- List every file that agents might need to reference. Be specific with paths. -->
+<!-- This is the "map" that agents use to navigate your workspace. -->
+
+- `CLAUDE.md` — This file (workspace overview and conventions)
+- `.claude/commands/prime.md` — Full session initialization
+- `.claude/commands/prime-telegram.md` — Quick Telegram session initialization
+
+<!-- Add your key files below. Examples: -->
+<!-- - `context/strategy.md` — Current strategic priorities and roadmap -->
+<!-- - `context/team.md` — Team roster, roles, responsibilities -->
+<!-- - `context/metrics.md` — Latest business metrics (auto-generated) -->
+<!-- - `reference/processes.md` — Standard operating procedures -->
+<!-- - `data/my-database.db` — SQLite database with business data -->
+<!-- - `docs/api-guide.md` — API documentation -->
+
+## Conventions
+
+<!-- Rules and conventions that all agents should follow. -->
+
+- **Currency:** {USD, EUR, GBP, NZD, etc.} — all financial figures use this currency unless labeled otherwise.
+- **Timezone:** {Your timezone, e.g., America/New_York, Pacific/Auckland}
+
+<!-- Add your conventions below. Examples: -->
+<!-- - When writing reports, start with a ## Summary section -->
+<!-- - Always use metric system for measurements -->
+<!-- - Customer names should be anonymized in outputs -->
+<!-- - Never commit or share .env files or API keys -->
+
+## Workspace Structure
+
+<!-- Describe your folder layout so agents know where to find and put things. -->
+
+```
+my-workspace/
+|-- CLAUDE.md                    # This file
+|-- .claude/commands/            # Agent prime commands
+|-- apps/command/                # Telegram bot code
+|-- data/                        # Data files and databases
+|-- context/                     # Business context documents
+|-- reference/                   # Evergreen reference materials
+|-- outputs/                     # Generated outputs (reports, charts)
+```
+
+<!-- Expand this to match your actual folder structure. -->
+<!-- The more detail you provide, the better agents can navigate. -->
+
+## Database
+
+<!-- If you have a SQLite database, document its schema here. -->
+<!-- Agents will use this to write correct SQL queries. -->
+
+<!-- Example: -->
+<!-- SQLite database at `data/my-database.db`. Key tables: -->
+<!-- - `customers` — id, name, email, plan, signup_date, mrr -->
+<!-- - `revenue` — id, customer_id, amount_usd, date, type -->
+<!-- - `metrics_daily` — date, metric_name, value -->
+<!-- -->
+<!-- Common queries: -->
+<!-- - Monthly revenue: `SELECT strftime('%Y-%m', date) as month, SUM(amount_usd) FROM revenue GROUP BY month` -->
+<!-- - Active customers: `SELECT COUNT(*) FROM customers WHERE plan != 'cancelled'` -->
+
+## Commands
+
+<!-- Document any slash commands you have set up. -->
+<!-- At minimum, you will have /prime from the prime commands. -->
+
+- `/prime` — Load workspace context (runs .claude/commands/prime.md)
+
+<!-- Add more as you build them. Examples: -->
+<!-- - `/update-data` — Refresh metrics from external sources -->
+<!-- - `/status` — Generate executive summary -->
+<!-- - `/report [topic]` — Generate a detailed report -->
+
+## Session Workflow
+
+<!-- How agents should work in this workspace. -->
+
+1. **Start:** Read CLAUDE.md and key context files
+2. **Understand:** Confirm understanding of the request
+3. **Work:** Execute the task using available tools (files, database, web search, code)
+4. **Deliver:** Provide results in the appropriate format
+5. **Update:** If the work changes any context files, update them

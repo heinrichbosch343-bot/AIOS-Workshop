@@ -8,6 +8,15 @@
 
 ---
 
+## 2026-05-19
+
+### DataOS and IntelOS Installed
+- DataOS pipeline live: SQLite database collecting FX rates daily at 7:00 AM via Windows Task Scheduler
+- IntelOS installed: Fathom transcript collector pulling meeting recordings into `data/intel.db` at 7:05 AM daily
+- Fixed .env encoding corruption (Windows-1252 to UTF-8) and Google credential variable mismatch in config.py
+- Fathom signed up, Chrome extension installed, connected to Google Meet
+- Command OS and Daily Brief module packages added to `module-installs/` ready for next sessions
+
 ## 2026-05-18
 
 ### InfraOS Setup

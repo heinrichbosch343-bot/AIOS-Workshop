@@ -119,7 +119,7 @@ def run_daily_brief(target_date=None, preset="small_team", dry_run=False,
     """Run the full daily brief pipeline.
 
     Args:
-        target_date: YYYY-MM-DD (default: yesterday)
+        target_date: YYYY-MM-DD (default: today)
         preset: "solo", "small_team", or "agency"
         dry_run: If True, print to stdout and skip saving/delivery
         deliver: If True, send to Telegram
@@ -129,7 +129,7 @@ def run_daily_brief(target_date=None, preset="small_team", dry_run=False,
         Path to saved brief, or brief text if dry_run
     """
     if target_date is None:
-        target_date = (datetime.now() - timedelta(days=1)).strftime("%Y-%m-%d")
+        target_date = datetime.now().strftime("%Y-%m-%d")
 
     logger.info(f"Generating daily brief for {target_date} (preset: {preset})")
 

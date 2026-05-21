@@ -16,6 +16,7 @@
 |-----------|-----|---------|
 | Working with data collection or key-metrics.md | [docs/data-os.md](data-os.md) | SQLite pipeline collecting metrics daily via scheduled task |
 | Working with meeting transcripts or intel.db | [docs/intel-os.md](intel-os.md) | Fathom transcript collector, meeting classifier, daily scheduler |
+| Working with the Telegram bot or CommandOS | [docs/command-os.md](command-os.md) | Telegram bot with Claude Agent SDK — phone-based AIOS command center |
 
 ## Integrations
 

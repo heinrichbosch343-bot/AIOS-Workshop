@@ -55,3 +55,21 @@
 - Wrote context/strategy.md — $50k revenue target, warm referrals + cold outreach strategy
 - Wrote context/current-data.md — baseline metrics, KPIs to track, Instantly AI as data source
 - Personalized CLAUDE.md with Context Summary section
+
+## 2026-05-22
+
+### ProductivityOS Install
+- Installed ProductivityOS GTD module: inbox, projects, next-actions, waiting-for, someday-maybe, areas, dashboard
+- Added /process command for GTD inbox processing with decision tree
+- Added /review command for weekly GTD review (GET CLEAR → GET CURRENT → GET CREATIVE → REBUILD)
+- Added inbox_writer.py and refresh_dashboard.py automation scripts
+- Added reference/gtd-methodology.md as GTD reference
+- Updated docs/_index.md and created docs/productivity-os.md
+
+### CommandOS Bot Stability
+- Added single-instance PID file guard to apps/command/main.py — prevents duplicate bot processes
+- Added auto-restart loop to scripts/start-command-os.bat for resilience after crashes
+
+### Client Pipeline
+- Added context/clients/ directory with profiles for Connie (Osun Consulting Group) and Lourens Delport
+- Updated strategy.md to reflect R1,000,000 ZAR revenue target by 17 August 2026

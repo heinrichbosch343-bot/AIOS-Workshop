@@ -158,6 +158,18 @@ Deep-dives the code first to fully understand it, then produces a self-contained
 
 Example: `/share the daily brief system`
 
+### /process
+
+**Purpose:** Process the GTD inbox to zero using the decision tree.
+
+Routes each captured item to projects, next-actions, waiting-for, someday-maybe, or trash. Refreshes the dashboard when done.
+
+### /review
+
+**Purpose:** Run a guided GTD weekly review (30-60 minutes).
+
+Walks through GET CLEAR → GET CURRENT → GET CREATIVE → REBUILD. Processes inbox, reviews all project and action lists, scans areas and someday-maybe, updates the dashboard. Run weekly (Fridays recommended).
+
 ---
 
 ## Getting Started

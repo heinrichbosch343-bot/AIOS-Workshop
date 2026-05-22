@@ -15,18 +15,18 @@
 
 ## Current Focus Period
 
-May–August 2026 (3-month sprint to first revenue milestone)
+May–17 August 2026 (sprint to first revenue milestone)
 
 ## Strategic Priorities
 
-1. **Hit $50,000 in revenue within 3 months** — The primary goal. Requires closing 10–20 clients at $2,500–$5,000 setup fees, with retainers beginning to stack on top.
+1. **Hit R1,000,000 in revenue within 3 months** — The primary goal. Requires closing clients at setup fees and retainers that stack over time.
 2. **Launch cold outreach machine within 2 weeks** — Get Instantly AI campaigns live using Apollo-sourced leads. Run this in parallel with warm referral outreach, not after it.
 3. **Close first clients via warm referrals** — Convert known contacts first. Use these early builds to refine the delivery process and build case studies.
 4. **Systematize the AIOS delivery process** — Each client build should get faster and more repeatable. Document the process as you go.
 
 ## What Success Looks Like
 
-- $50,000 in collected revenue by ~August 2026
+- R1,000,000 in collected revenue by 17 August 2026
 - At least 5–10 active clients on monthly retainers
 - Cold outreach system running and generating inbound pipeline
 - AIOS delivery process refined enough to scale without breaking

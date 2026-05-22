@@ -1,21 +1,22 @@
 # Key Metrics
 
-> Auto-generated from database. Last updated: 2026-05-18
+> Auto-generated from database. Last updated: 2026-05-22
 > Source: `data/data.db` | Regenerate: `python scripts/generate_metrics.py`
 
 ## Exchange Rates (USD base)
 
 | Currency | Rate | As Of |
 |----------|------|-------|
-| AUD | 1.3956 | 2026-05-18 |
-| CAD | 1.3741 | 2026-05-18 |
-| EUR | 0.8585 | 2026-05-18 |
-| GBP | 0.7471 | 2026-05-18 |
-| JPY | 158.7700 | 2026-05-18 |
-| SGD | 1.2788 | 2026-05-18 |
-| ZAR | 16.6236 | 2026-05-18 |
+| AUD | 1.4030 | 2026-05-21 |
+| CAD | 1.3770 | 2026-05-21 |
+| EUR | 0.8621 | 2026-05-21 |
+| GBP | 0.7452 | 2026-05-21 |
+| JPY | 159.1400 | 2026-05-21 |
+| SGD | 1.2801 | 2026-05-21 |
+| ZAR | 16.5539 | 2026-05-21 |
 
 ## Data Freshness
 | Source | Latest Record | Status |
 |--------|---------------|--------|
-| fx_rates | 2026-05-18 | Connected |
+| clients | — | No date column |
+| fx_rates | 2026-05-21 | Connected |

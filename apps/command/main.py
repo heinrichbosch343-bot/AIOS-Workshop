@@ -26,6 +26,20 @@ if sys.platform == "win32" and hasattr(sys.stdout, "buffer"):
 # subprocess spawning — popping it here ensures clean agent launches.
 os.environ.pop("CLAUDECODE", None)
 
+# Single-instance guard: exit immediately if another bot process is already running.
+_PID_FILE = Path(__file__).resolve().parent.parent.parent / "data" / "command-bot.pid"
+_PID_FILE.parent.mkdir(parents=True, exist_ok=True)
+if _PID_FILE.exists():
+    _existing_pid = int(_PID_FILE.read_text().strip())
+    if _existing_pid != os.getpid():
+        try:
+            os.kill(_existing_pid, 0)  # Signal 0: check if process exists
+            print(f"Bot already running (PID {_existing_pid}). Exiting.", flush=True)
+            sys.exit(0)
+        except (OSError, ProcessLookupError):
+            pass  # Stale PID file — previous instance died
+_PID_FILE.write_text(str(os.getpid()))
+
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
@@ -199,6 +213,7 @@ async def main() -> None:
     @dp.shutdown()
     async def on_shutdown() -> None:
         system.info("Shutting down...")
+        _PID_FILE.unlink(missing_ok=True)
 
     await dp.start_polling(bot)
 

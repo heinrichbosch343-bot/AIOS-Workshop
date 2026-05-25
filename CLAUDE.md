@@ -170,6 +170,18 @@ Routes each captured item to projects, next-actions, waiting-for, someday-maybe,
 
 Walks through GET CLEAR → GET CURRENT → GET CREATIVE → REBUILD. Processes inbox, reviews all project and action lists, scans areas and someday-maybe, updates the dashboard. Run weekly (Fridays recommended).
 
+### /brainstorm [topic]
+
+**Purpose:** Workspace scanner and opportunity finder.
+
+Scans your tasks, processes, and current setup to find manual work that could be automated. Ranks opportunities by impact and feasibility, deep-dives the top picks, and points you to `/explore` or `/implement` for the next step. Run without arguments to scan everything, or with a topic to focus on a specific area.
+
+### /explore [idea]
+
+**Purpose:** Interactive feature discovery and shaping.
+
+Takes an idea and walks you through shaping it into a clear, scoped concept through 5 stages: Discovery → Research → Shape → Scope → Output. Produces a feature doc in `plans/` ready for `/implement` or `/create-plan`.
+
 ---
 
 ## Getting Started

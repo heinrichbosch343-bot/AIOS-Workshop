@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BoschAI — Meeting Brief | Lourens Delport</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy:   #0D1B2A;
+      --ink:    #1A2C3D;
+      --blue:   #1E6FFF;
+      --sky:    #EBF2FF;
+      --silver: #8A9BB0;
+      --rule:   #D4DCE8;
+      --white:  #FFFFFF;
+    }
+
+    body {
+      font-family: 'Inter', system-ui, sans-serif;
+      background: #F0F4FA;
+      color: var(--navy);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .page {
+      width: 794px;
+      min-height: 1123px;
+      margin: 40px auto;
+      background: var(--white);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 8px 40px rgba(13,27,42,0.12);
+    }
+
+    /* ── HEADER ─────────────────────────────────────────── */
+    .header {
+      background: var(--navy);
+      padding: 44px 56px 40px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .header::after {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 280px; height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(30,111,255,0.18) 0%, transparent 70%);
+    }
+
+    .brand-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+
+    .brand-mark {
+      width: 36px; height: 36px;
+      background: var(--blue);
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .brand-mark svg { width: 20px; height: 20px; }
+
+    .brand-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--white);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .doc-label {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--blue);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: 10px;
+    }
+
+    .header h1 {
+      font-size: 30px;
+      font-weight: 700;
+      color: var(--white);
+      line-height: 1.2;
+      margin-bottom: 8px;
+    }
+
+    .header-sub {
+      font-size: 15px;
+      color: rgba(255,255,255,0.55);
+      font-weight: 400;
+    }
+
+    /* ── META STRIP ─────────────────────────────────────── */
+    .meta-strip {
+      background: var(--sky);
+      border-bottom: 1px solid var(--rule);
+      padding: 16px 56px;
+      display: flex;
+      gap: 40px;
+    }
+
+    .meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .meta-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--silver); }
+    .meta-value { font-size: 13px; font-weight: 600; color: var(--ink); }
+
+    /* ── BODY ───────────────────────────────────────────── */
+    .body { padding: 44px 56px 52px; }
+
+    .intro-block {
+      background: var(--sky);
+      border-left: 3px solid var(--blue);
+      border-radius: 0 10px 10px 0;
+      padding: 18px 22px;
+      margin-bottom: 40px;
+    }
+
+    .intro-block p {
+      font-size: 14px;
+      line-height: 1.7;
+      color: var(--ink);
+    }
+
+    .intro-block strong { color: var(--blue); }
+
+    section { margin-bottom: 36px; }
+
+    .section-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.14em;
+      color: var(--blue);
+      margin-bottom: 12px;
+    }
+
+    section h2 {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 14px;
+    }
+
+    section p {
+      font-size: 14px;
+      line-height: 1.75;
+      color: #3D5068;
+    }
+
+    /* ── AGENDA CARDS ───────────────────────────────────── */
+    .agenda-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 4px;
+    }
+
+    .agenda-card {
+      border: 1px solid var(--rule);
+      border-radius: 10px;
+      padding: 18px 20px;
+    }
+
+    .agenda-num {
+      display: inline-flex;
+      align-items: center; justify-content: center;
+      width: 24px; height: 24px;
+      background: var(--blue);
+      color: var(--white);
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+
+    .agenda-card h3 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--navy);
+      margin-bottom: 6px;
+    }
+
+    .agenda-card p {
+      font-size: 12.5px;
+      line-height: 1.6;
+      color: var(--silver);
+    }
+
+    /* ── QUESTIONS ──────────────────────────────────────── */
+    .questions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 4px;
+    }
+
+    .question-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 8px;
+      background: #FAFBFD;
+      border: 1px solid var(--rule);
+    }
+
+    .q-icon {
+      flex-shrink: 0;
+      width: 28px; height: 28px;
+      background: var(--navy);
+      border-radius: 6px;
+      display: flex; align-items: center; justify-content: center;
+      margin-top: 1px;
+    }
+
+    .q-icon svg { width: 14px; height: 14px; }
+
+    .question-row p {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--ink);
+      font-weight: 400;
+    }
+
+    /* ── OUTPUT STRIP ───────────────────────────────────── */
+    .output-strip {
+      background: var(--navy);
+      border-radius: 12px;
+      padding: 22px 26px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      margin-top: 4px;
+    }
+
+    .output-icon {
+      flex-shrink: 0;
+      width: 44px; height: 44px;
+      background: rgba(30,111,255,0.2);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .output-icon svg { width: 22px; height: 22px; }
+
+    .output-text h3 {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--white);
+      margin-bottom: 4px;
+    }
+
+    .output-text p {
+      font-size: 13px;
+      color: rgba(255,255,255,0.55);
+      line-height: 1.5;
+    }
+
+    /* ── FOOTER ─────────────────────────────────────────── */
+    .footer {
+      border-top: 1px solid var(--rule);
+      padding: 20px 56px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .footer-left {
+      font-size: 12px;
+      color: var(--silver);
+    }
+
+    .footer-left strong { color: var(--ink); }
+
+    .footer-right {
+      font-size: 12px;
+      color: var(--silver);
+      text-align: right;
+    }
+
+    /* ── PRINT ──────────────────────────────────────────── */
+    @media print {
+      body { background: white; }
+      .page { margin: 0; border-radius: 0; box-shadow: none; width: 100%; min-height: 100vh; }
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <!-- HEADER -->
+  <div class="header">
+    <div class="brand-row">
+      <div class="brand-mark">
+        <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M10 2L17 6V14L10 18L3 14V6L10 2Z" stroke="white" stroke-width="1.5" stroke-linejoin="round"/>
+          <circle cx="10" cy="10" r="2.5" fill="white"/>
+        </svg>
+      </div>
+      <span class="brand-name">BoschAI</span>
+    </div>
+    <div class="doc-label">Pre-Meeting Brief</div>
+    <h1>AI Operating System<br/>Discovery Session</h1>
+    <div class="header-sub">Prepared for Lourens Delport</div>
+  </div>
+
+  <!-- META STRIP -->
+  <div class="meta-strip">
+    <div class="meta-item">
+      <span class="meta-label">Meeting Type</span>
+      <span class="meta-value">Business Discovery</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Prepared by</span>
+      <span class="meta-value">Heinrich Bosch, BoschAI</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Session</span>
+      <span class="meta-value">Call #2 — Needs Assessment</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Date</span>
+      <span class="meta-value">May 2026</span>
+    </div>
+  </div>
+
+  <!-- BODY -->
+  <div class="body">
+
+    <!-- INTRO -->
+    <div class="intro-block">
+      <p>
+        Our first conversation gave you a picture of what an AI Operating System can do.
+        This next session is about <strong>you and your business</strong> — understanding how you
+        currently operate, where your time is going, and where AI can start giving it back.
+        No technical knowledge required. Just bring your honest perspective.
+      </p>
+    </div>
+
+    <!-- WHAT WE'LL COVER -->
+    <section>
+      <div class="section-label">Agenda</div>
+      <h2>What We'll Cover</h2>
+      <div class="agenda-grid">
+        <div class="agenda-card">
+          <div class="agenda-num">1</div>
+          <h3>Your Business Today</h3>
+          <p>Walk through your three ventures — consulting, founder advisory, and software. How they interact and where your attention splits.</p>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">2</div>
+          <h3>A Day in Your Life</h3>
+          <p>What you check first, what pulls you back to your phone, and what a genuinely good day looks like for you.</p>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">3</div>
+          <h3>Your Key Signals</h3>
+          <p>The numbers and updates that tell you if the business is healthy — revenue, client activity, team, pipeline.</p>
+        </div>
+        <div class="agenda-card">
+          <div class="agenda-num">4</div>
+          <h3>Your First Win</h3>
+          <p>What one thing, if automated or summarised for you each morning, would immediately give you time back?</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- PREP QUESTIONS -->
+    <section>
+      <div class="section-label">Come Prepared</div>
+      <h2>Questions to Think About</h2>
+      <div class="questions-list">
+        <div class="question-row">
+          <div class="q-icon">
+            <svg viewBox="0 0 14 14" fill="none"><circle cx="7" cy="7" r="6" stroke="white" stroke-width="1.2"/><path d="M7 4v3.5L9 9" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
+          </div>
+          <p>How much time per day do you spend checking emails, messages, and dashboards — and does it feel like enough, or never enough?</p>
+        </div>
+        <div class="question-row">
+          <div class="q-icon">
+            <svg viewBox="0 0 14 14" fill="none"><rect x="1" y="2" width="12" height="10" rx="2" stroke="white" stroke-width="1.2"/><path d="M4 6h6M4 8.5h4" stroke="white" stroke-width="1.2" stroke-linecap="round"/></svg>
+          </div>
+          <p>If you received a perfect morning briefing, what would it tell you? (Revenue, emails, client updates, team activity — what matters most?)</p>
+        </div>
+        <div class="question-row">
+          <div class="q-icon">
+            <svg viewBox="0 0 14 14" fill="none"><path d="M2 11L5 8M9 4l3-3M5 8l4-4" stroke="white" stroke-width="1.2" stroke-linecap="round"/><circle cx="9" cy="4" r="1.5" stroke="white" stroke-width="1.2"/></svg>
+          </div>
+          <p>What recurring tasks do you do every week that feel like they shouldn't need you personally — but no one else does them?</p>
+        </div>
+        <div class="question-row">
+          <div class="q-icon">
+            <svg viewBox="0 0 14 14" fill="none"><path d="M7 1v2M7 11v2M1 7h2M11 7h2" stroke="white" stroke-width="1.2" stroke-linecap="round"/><circle cx="7" cy="7" r="3.5" stroke="white" stroke-width="1.2"/></svg>
+          </div>
+          <p>Across your three businesses, which one feels the most chaotic right now — and what does "calm" look like for it?</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- OUTPUT -->
+    <section>
+      <div class="section-label">What Comes Next</div>
+      <h2>The Output of This Meeting</h2>
+      <div class="output-strip">
+        <div class="output-icon">
+          <svg viewBox="0 0 22 22" fill="none"><rect x="2" y="2" width="18" height="18" rx="4" stroke="#1E6FFF" stroke-width="1.5"/><path d="M7 11h8M7 7.5h5M7 14.5h6" stroke="#1E6FFF" stroke-width="1.5" stroke-linecap="round"/></svg>
+        </div>
+        <div class="output-text">
+          <h3>A Scoped AIOS Proposal — Built Around Your Business</h3>
+          <p>After this session, I'll prepare a tailored proposal: which AIOS modules to start with, what your daily brief would look like, and a clear implementation roadmap with pricing.</p>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- FOOTER -->
+  <div class="footer">
+    <div class="footer-left">
+      <strong>Heinrich Bosch</strong> &nbsp;·&nbsp; BoschAI &nbsp;·&nbsp; heinrichbosch343@gmail.com
+    </div>
+    <div class="footer-right">
+      Confidential — prepared for Lourens Delport
+    </div>
+  </div>
+
+</div>
+</body>
+</html>

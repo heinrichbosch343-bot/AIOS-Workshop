@@ -169,6 +169,15 @@ def run_daily_brief(target_date=None, preset="small_team", dry_run=False,
     else:
         logger.info("No Slack messages (IntelOS Slack not found or empty)")
 
+    # 5.5. Load email inbox (if Gmail collector is configured)
+    from scripts.prompt import load_email_summary
+
+    email_text = load_email_summary(conn, target_date)
+    if email_text:
+        logger.info(f"Email inbox: ~{len(email_text) // 4:,} tokens")
+    else:
+        logger.info("No email data (Gmail collector not configured or no emails)")
+
     # 6. Build the mega-prompt
     from scripts.prompt import build_mega_prompt
 
@@ -177,6 +186,7 @@ def run_daily_brief(target_date=None, preset="small_team", dry_run=False,
         context_text=context_text,
         meetings_text=meetings_text,
         slack_text=slack_text,
+        email_text=email_text,
         preset=preset,
     )
     logger.info(f"Mega-prompt assembled: ~{len(mega_prompt) // 4:,} tokens")

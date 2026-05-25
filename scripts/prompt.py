@@ -30,6 +30,7 @@ PRESETS = {
             "executive_summary",
             "key_signals",
             "metrics_analysis",
+            "email_digest",
             "action_items",
         ],
         "word_budget": 1500,
@@ -172,6 +173,65 @@ def load_meeting_transcripts(conn, target_date):
         return ""
 
 
+def load_email_summary(conn, target_date):
+    """Load emails from the Gmail collector table.
+
+    Returns formatted text block, or empty string if no emails table.
+    """
+    try:
+        row = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='emails'"
+        ).fetchone()
+        if not row:
+            return ""
+
+        emails = conn.execute(
+            "SELECT * FROM emails WHERE date = ? ORDER BY is_read ASC, from_address",
+            (target_date,),
+        ).fetchall()
+
+        if not emails:
+            yesterday = (
+                datetime.strptime(target_date, "%Y-%m-%d") - timedelta(days=1)
+            ).strftime("%Y-%m-%d")
+            emails = conn.execute(
+                "SELECT * FROM emails WHERE date = ? ORDER BY is_read ASC, from_address",
+                (yesterday,),
+            ).fetchall()
+
+        if not emails:
+            return ""
+
+        unread = [dict(e) for e in emails if not e["is_read"]]
+        read_emails = [dict(e) for e in emails if e["is_read"]]
+
+        lines = [f"--- INBOX: {len(emails)} emails ({len(unread)} unread) ---\n"]
+
+        if unread:
+            lines.append("UNREAD:")
+            for e in unread:
+                sender = e.get("from_name") or e.get("from_address", "Unknown")
+                subject = e.get("subject", "(No subject)")
+                snippet = e.get("snippet", "")
+                attachment = " [attachment]" if e.get("has_attachment") else ""
+                lines.append(f"  * {sender}: {subject}{attachment}")
+                if snippet:
+                    lines.append(f"    {snippet[:150]}")
+
+        if read_emails:
+            lines.append("\nREAD:")
+            for e in read_emails:
+                sender = e.get("from_name") or e.get("from_address", "Unknown")
+                subject = e.get("subject", "(No subject)")
+                attachment = " [attachment]" if e.get("has_attachment") else ""
+                lines.append(f"  - {sender}: {subject}{attachment}")
+
+        return "\n".join(lines)
+
+    except Exception:
+        return ""
+
+
 def load_slack_messages(conn, target_date):
     """Load Slack messages from IntelOS database tables.
 
@@ -231,7 +291,7 @@ def load_slack_messages(conn, target_date):
 # ============================================================
 
 def build_mega_prompt(metrics_text, context_text, meetings_text="",
-                      slack_text="", preset="small_team",
+                      slack_text="", email_text="", preset="small_team",
                       custom_sections=None):
     """Assemble the full mega-prompt for Gemini.
 
@@ -252,7 +312,7 @@ def build_mega_prompt(metrics_text, context_text, meetings_text="",
 
     # Build the section instruction
     section_instructions = _build_section_instructions(
-        sections, word_budget, bool(meetings_text), bool(slack_text)
+        sections, word_budget, bool(meetings_text), bool(slack_text), bool(email_text)
     )
 
     prompt_parts = [
@@ -270,6 +330,10 @@ def build_mega_prompt(metrics_text, context_text, meetings_text="",
     if slack_text:
         prompt_parts.append("\n\n=== SLACK MESSAGES ===\n")
         prompt_parts.append(slack_text)
+
+    if email_text:
+        prompt_parts.append("\n\n=== EMAIL INBOX ===\n")
+        prompt_parts.append(email_text)
 
     prompt_parts.append("\n\n=== OUTPUT INSTRUCTIONS ===\n")
     prompt_parts.append(section_instructions)
@@ -297,7 +361,7 @@ RULES:
 """
 
 
-def _build_section_instructions(sections, word_budget, has_meetings, has_slack):
+def _build_section_instructions(sections, word_budget, has_meetings, has_slack, has_email=False):
     """Build per-section output instructions."""
     # Word budget per section (roughly proportional)
     budget_map = {
@@ -307,6 +371,7 @@ def _build_section_instructions(sections, word_budget, has_meetings, has_slack):
         "meeting_highlights": 500,
         "department_analysis": 800,
         "slack_digest": 400,
+        "email_digest": 300,
         "cross_stream_patterns": 400,
         "strategic_recommendations": 500,
         "action_items": 200,
@@ -370,6 +435,18 @@ def _build_section_instructions(sections, word_budget, has_meetings, has_slack):
             "- Anything the owner should know about or respond to\n"
             "Skip channels with nothing notable."
             if has_slack
+            else None
+        ),
+        "email_digest": (
+            "## Email Digest\n"
+            "Summarise the inbox for the day:\n"
+            "- Unread emails that need a response or action (flag these clearly)\n"
+            "- Any emails containing deadlines, proposals, or important decisions\n"
+            "- Patterns across senders (e.g. multiple emails from same client)\n"
+            "- Attachments worth noting\n"
+            "Skip newsletters, automated notifications, and receipts unless notable.\n"
+            "End with a prioritised 'Reply needed' list if any exist."
+            if has_email
             else None
         ),
         "cross_stream_patterns": (

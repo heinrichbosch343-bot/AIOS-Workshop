@@ -1,6 +1,6 @@
 # Key Metrics
 
-> Auto-generated from database. Last updated: 2026-05-24
+> Auto-generated from database. Last updated: 2026-05-25
 > Source: `data/data.db` | Regenerate: `python scripts/generate_metrics.py`
 
 ## Exchange Rates (USD base)

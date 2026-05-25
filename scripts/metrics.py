@@ -99,22 +99,25 @@ def _ensure_pipeline_view(conn):
     pipeline data the same way it queries time-series data.
     """
     try:
+        conn.execute("DROP VIEW IF EXISTS pipeline_daily")
         conn.execute("""
-            CREATE VIEW IF NOT EXISTS pipeline_daily AS
+            CREATE VIEW pipeline_daily AS
             SELECT
                 date('now', 'localtime') AS date,
-                SUM(CASE WHEN LOWER(status) = 'prospect' THEN 1 ELSE 0 END) AS prospects,
-                SUM(CASE WHEN LOWER(status) = 'assessment_booked' THEN 1 ELSE 0 END) AS assessment_booked,
-                SUM(CASE WHEN LOWER(status) = 'assessment_delivered' THEN 1 ELSE 0 END) AS assessment_delivered,
-                SUM(CASE WHEN LOWER(status) = 'proposal_sent' THEN 1 ELSE 0 END) AS proposal_sent,
-                SUM(CASE WHEN LOWER(status) = 'active_build' THEN 1 ELSE 0 END) AS active_build,
-                SUM(CASE WHEN LOWER(status) = 'handoff_complete' THEN 1 ELSE 0 END) AS handoff_complete,
+                SUM(CASE WHEN LOWER(status) = 'interested' THEN 1 ELSE 0 END) AS interested,
+                SUM(CASE WHEN LOWER(status) = 'no_reply' THEN 1 ELSE 0 END) AS no_reply,
+                SUM(CASE WHEN LOWER(status) = 'meeting_booked' THEN 1 ELSE 0 END) AS meeting_booked,
+                SUM(CASE WHEN LOWER(status) = 'followup_meeting_booked' THEN 1 ELSE 0 END) AS followup_meeting_booked,
+                SUM(CASE WHEN LOWER(status) = 'proposal_delivered' THEN 1 ELSE 0 END) AS proposal_delivered,
+                SUM(CASE WHEN LOWER(status) = 'won' THEN 1 ELSE 0 END) AS won,
+                SUM(CASE WHEN LOWER(status) = 'contact_again' THEN 1 ELSE 0 END) AS contact_again,
+                SUM(CASE WHEN LOWER(status) = 'lost' THEN 1 ELSE 0 END) AS lost,
                 COUNT(*) AS total_pipeline
             FROM clients
         """)
         conn.commit()
     except Exception:
-        pass  # View may already exist or clients table missing — both are fine
+        pass  # clients table missing — fine, view will be created when table exists
 
 
 def _table_or_view_exists(conn, name):

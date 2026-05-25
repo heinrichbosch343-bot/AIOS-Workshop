@@ -7,12 +7,16 @@
 ```
 context/funnel.md --> metrics.py --> pipeline_daily (SQLite)
                                            |
-                                      prompt.py (mega-prompt)
-                                           |
-                                    Gemini API (flash-lite)
-                                           |
-                          deliver.py --> Telegram (@BoschAI_bot)
-                          dashboard.py --> funnel image (optional)
+collect_gmail.py --> emails (SQLite) --+   |
+meetings (SQLite) ----------------------+--+
+slack_messages (SQLite) ---------------|
+                                       v
+                                  prompt.py (mega-prompt)
+                                       |
+                                 Gemini API (flash-lite)
+                                       |
+                       deliver.py --> Telegram (@BoschAI_bot)
+                       dashboard.py --> funnel image (optional)
 ```
 
 ## Key Files
@@ -24,6 +28,7 @@ context/funnel.md --> metrics.py --> pipeline_daily (SQLite)
 | `scripts/prompt.py` | Builds the Gemini mega-prompt with preset sections |
 | `scripts/deliver.py` | Sends brief to Telegram (two-message format) |
 | `scripts/dashboard.py` | Generates vertical funnel chart (dark theme) |
+| `scripts/collect_gmail.py` | Gmail IMAP collector → `emails` table in `data.db` |
 | `context/funnel.md` | Defines pipeline stages, targets, and column mappings |
 
 ## How It Works
@@ -41,6 +46,8 @@ context/funnel.md --> metrics.py --> pipeline_daily (SQLite)
 | `GEMINI_API_KEY` | Gemini API access | Yes |
 | `BRIEF_MODEL` | Override model (default: `gemini-2.5-flash-lite`) | No |
 | `BRIEF_PRESET` | Prompt preset (`solo`) | No |
+| `GMAIL_ADDRESS` | Gmail address for email collection | No (skips email section) |
+| `GMAIL_APP_PASSWORD` | Gmail App Password (not account password) | No (skips email section) |
 | `TELEGRAM_BOT_TOKEN` | Bot token for delivery | Yes (if delivering) |
 | `TELEGRAM_CHAT_ID` | Target chat/group ID | Yes (if delivering) |
 
@@ -73,3 +80,4 @@ venv\Scripts\python scripts\daily_brief.py --date 2026-05-21
 | Date | Change |
 |------|--------|
 | 2026-05-21 | Initial installation — scripts, funnel definition, end-to-end tested |
+| 2026-05-25 | Added Gmail email collector (`collect_gmail.py`); wired `email_digest` section into prompt pipeline; `email_digest` in `solo` preset |

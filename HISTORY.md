@@ -8,6 +8,15 @@
 
 ---
 
+## 2026-05-25
+
+### Slash Commands, Gmail Connector, and Task Scheduler Fix
+- Installed `/brainstorm` and `/explore` discovery commands from `slash-commands-v1` module
+- Built `scripts/collect_gmail.py` — Gmail IMAP collector feeding `emails` table into `data.db`
+- Wired email data into daily brief pipeline: `load_email_summary()` in `prompt.py`, new `email_digest` section (solo preset)
+- Fixed CommandOS launch: removed duplicate Startup folder VBS, created `scripts/AIOS-CommandOS-Bot.vbs`, migrated to Task Scheduler (consistent with all other AIOS tasks)
+- Created branded pre-meeting HTML briefs for prospects Lourens Delport and Connie (Osun Consulting)
+
 ## 2026-05-21
 
 ### Daily Brief Installed — Pipeline Metrics Delivered to Telegram

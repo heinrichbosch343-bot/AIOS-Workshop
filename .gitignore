@@ -24,6 +24,8 @@ data/*.db-journal
 data/*.db-shm
 data/*.db-wal
 data/*.log
+data/*.pid
+data/*.json
 data/command/
 
 # --- macOS ---

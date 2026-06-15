@@ -72,6 +72,23 @@ def start_scheduler():
                 id="campaign_responder", replace_existing=True, misfire_grace_time=300)
     # === BoschAI: Follow-ups (lane B) — END ===
 
+    # === BoschAI: LinkedIn (lane A) — BEGIN ===
+    from config import LINKEDIN_SCHEDULER_ENABLED
+    if LINKEDIN_SCHEDULER_ENABLED:
+        from datetime import datetime
+        from services.linkedin import generate_morning_content
+
+        def _linkedin_morning():
+            weekday = datetime.now().weekday()  # 0=Mon .. 4=Fri
+            include_videos = weekday in (0, 2, 4)  # Mon, Wed, Fri
+            generate_morning_content(include_video_ideas=include_videos)
+
+        sch.add_job(_safe(_linkedin_morning),
+                    CronTrigger(hour=9, minute=0, day_of_week="mon-fri", timezone=TZ),
+                    id="linkedin_morning", replace_existing=True, misfire_grace_time=3600)
+        print("[scheduler] linkedin morning draft: 09:00 SAST Mon-Fri (video ideas Mon/Wed/Fri)", flush=True)
+    # === BoschAI: LinkedIn (lane A) — END ===
+
     sch.start()
     _scheduler = sch
     print("[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, daily brief 06:00 SAST, sign-off watcher every 30 min, follow-ups 08/11/14:00", flush=True)

@@ -19,6 +19,7 @@
 | Working with the Telegram bot or CommandOS | [docs/command-os.md](command-os.md) | Telegram bot with Claude Agent SDK — phone-based AIOS command center |
 | Working with the daily brief or morning report | [docs/daily-brief.md](daily-brief.md) | Gemini-powered daily brief with pipeline metrics delivered to Telegram |
 | Working with GTD, /process, /review, or gtd/ files | [docs/productivity-os.md](productivity-os.md) | GTD system — inbox, projects, next actions, weekly review |
+| Working with LinkedIn drafting, /post, /reply, /ideas | [docs/linkedin-engine.md](linkedin-engine.md) | Assisted LinkedIn drafting in Heinrich's voice via Telegram |
 
 ## Integrations
 

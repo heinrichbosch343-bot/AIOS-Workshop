@@ -59,3 +59,12 @@ CAMPAIGN_REPLY_DELAY_MINUTES = int(os.environ.get("CAMPAIGN_REPLY_DELAY_MINUTES"
 CAMPAIGN_DAILY_CAP_PER_ACCOUNT = int(os.environ.get("CAMPAIGN_DAILY_CAP_PER_ACCOUNT", "50"))
 CAMPAIGN_KILL_SWITCH = os.environ.get("CAMPAIGN_KILL_SWITCH", "false").lower() in ("true", "1", "yes")
 # === BoschAI: Follow-ups (lane B) — END ===
+
+# === BoschAI: LinkedIn (lane A) — BEGIN ===
+# LinkedIn growth engine — uses ANTHROPIC_API_KEY (already configured above).
+# LINKEDIN_DRAFTING_MODEL: override the Claude model used for LinkedIn drafts.
+LINKEDIN_DRAFTING_MODEL = os.environ.get("LINKEDIN_DRAFTING_MODEL", "claude-sonnet-4-6")
+# LINKEDIN_SCHEDULER_ENABLED: set to "1" to activate the daily morning draft.
+# Off by default — no API calls until Heinrich flips this on.
+LINKEDIN_SCHEDULER_ENABLED = os.environ.get("LINKEDIN_SCHEDULER_ENABLED", "0") == "1"
+# === BoschAI: LinkedIn (lane A) — END ===

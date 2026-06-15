@@ -8,6 +8,16 @@
 
 ---
 
+## 2026-06-15
+
+### LinkedIn Growth Engine (Lane A)
+- Built `services/linkedin.py` — draft_post, draft_reply, draft_comment, suggest_ideas using Claude API + voice profile
+- Created `prompts/linkedin_voice.md` — Heinrich's LinkedIn tone, pillars, what he never says
+- Added Telegram commands: `/post`, `/reply`, `/ideas` for on-demand drafting
+- Added agent tools: `draft_linkedin_post`, `draft_linkedin_reply`, `suggest_linkedin_ideas`
+- Created `context/linkedin/` content-ops files: pillars, idea backlog, accounts to engage, weekly cadence
+- All shared-file edits in marked `# === BoschAI: LinkedIn (lane A) ===` blocks for clean merge with lane B
+
 ## 2026-05-25
 
 ### Slash Commands, Gmail Connector, and Task Scheduler Fix

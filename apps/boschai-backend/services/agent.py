@@ -22,6 +22,10 @@ from services import knowledge as knowledge_service
 from services import context_store as cs
 from googleapiclient.discovery import build as gbuild
 
+# === BoschAI: LinkedIn (lane A) — BEGIN ===
+from services.linkedin import LINKEDIN_TOOLS, handle_linkedin_tool
+# === BoschAI: LinkedIn (lane A) — END ===
+
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 MODEL = "claude-sonnet-4-6"
 MAX_TOOL_ROUNDS = 8
@@ -266,6 +270,10 @@ TOOLS = [
     # === BoschAI: Follow-ups (lane B) — END ===
 ]
 
+# === BoschAI: LinkedIn (lane A) — BEGIN ===
+TOOLS.extend(LINKEDIN_TOOLS)
+# === BoschAI: LinkedIn (lane A) — END ===
+
 
 def run_tool(name: str, tool_input: dict, source: str = None) -> dict:
     """Execute a tool and return a JSON-serialisable result (never raises)."""
@@ -346,6 +354,10 @@ def run_tool(name: str, tool_input: dict, source: str = None) -> dict:
             new_state = set_kill_switch(tool_input["on"])
             return {"kill_switch": new_state, "message": "Kill switch engaged" if new_state else "Kill switch off"}
         # === BoschAI: Follow-ups (lane B) — END ===
+        # === BoschAI: LinkedIn (lane A) — BEGIN ===
+        if name.startswith("draft_linkedin") or name == "suggest_linkedin_ideas":
+            return handle_linkedin_tool(name, tool_input)
+        # === BoschAI: LinkedIn (lane A) — END ===
         return {"error": f"Unknown tool: {name}"}
     except Exception as e:
         return {"error": str(e)}

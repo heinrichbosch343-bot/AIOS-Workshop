@@ -248,6 +248,64 @@ async def handle_myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"This chat's id is: {update.effective_chat.id}")
 
 
+# === BoschAI: LinkedIn (lane A) — BEGIN ===
+from services.linkedin import draft_post, draft_reply, draft_comment, suggest_ideas
+
+
+async def handle_post(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /post <topic or rough note>
+    Drafts a LinkedIn post in Heinrich's voice, ready to copy-paste."""
+    if not context.args:
+        await update.message.reply_text("Usage: /post <topic or rough note>\nExample: /post why I built my own AIOS")
+        return
+    topic = " ".join(context.args)
+    await update.message.reply_chat_action("typing")
+    try:
+        text = await asyncio.to_thread(draft_post, topic)
+        await _reply_long(update, f"LinkedIn draft:\n\n{text}")
+    except Exception as e:
+        await update.message.reply_text(f"Drafting failed: {e}")
+
+
+async def handle_linkedin_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /reply <paste the post or comment you're replying to>
+    Drafts a LinkedIn reply or comment in Heinrich's voice."""
+    if not context.args:
+        await update.message.reply_text("Usage: /reply <paste the post or comment>\nPaste the text you want to reply to.")
+        return
+    context_text = " ".join(context.args)
+    await update.message.reply_chat_action("typing")
+    try:
+        text = await asyncio.to_thread(draft_reply, context_text)
+        await _reply_long(update, f"Reply draft:\n\n{text}")
+    except Exception as e:
+        await update.message.reply_text(f"Drafting failed: {e}")
+
+
+async def handle_ideas(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /ideas [pillar]
+    Suggests LinkedIn post ideas, optionally filtered to a content pillar."""
+    pillar = " ".join(context.args) if context.args else None
+    await update.message.reply_chat_action("typing")
+    try:
+        ideas = await asyncio.to_thread(suggest_ideas, 5, pillar)
+        lines = [f"Post ideas ({len(ideas)}):"]
+        for i, idea in enumerate(ideas, 1):
+            title = idea.get("title", "Untitled")
+            hook = idea.get("hook", "")
+            p = idea.get("pillar", "")
+            lines.append(f"\n{i}. {title}")
+            if p:
+                lines.append(f"   Pillar: {p}")
+            if hook:
+                lines.append(f"   Hook: {hook}")
+        lines.append("\nPick one and run /post to draft it.")
+        await _reply_long(update, "\n".join(lines))
+    except Exception as e:
+        await update.message.reply_text(f"Idea generation failed: {e}")
+# === BoschAI: LinkedIn (lane A) — END ===
+
+
 async def start_bot():
     global _bot_app
     _bot_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -264,6 +322,11 @@ async def start_bot():
     _bot_app.add_handler(CommandHandler("compile", handle_compile, filters=chat_filter))
     _bot_app.add_handler(CommandHandler("scaffold", handle_scaffold, filters=chat_filter))
     _bot_app.add_handler(CommandHandler("brief", handle_brief, filters=chat_filter))
+    # === BoschAI: LinkedIn (lane A) — BEGIN ===
+    _bot_app.add_handler(CommandHandler("post", handle_post, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("reply", handle_linkedin_reply, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("ideas", handle_ideas, filters=chat_filter))
+    # === BoschAI: LinkedIn (lane A) — END ===
     _bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & chat_filter, handle_message))
 
     await _bot_app.initialize()

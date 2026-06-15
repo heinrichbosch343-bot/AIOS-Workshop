@@ -34,3 +34,9 @@ EMBEDDING_DIM = int(os.environ.get("EMBEDDING_DIM", "1024"))
 POOL_CLIENT_ROOTS = [s.strip() for s in os.environ.get("POOL_CLIENT_ROOTS", "").split(",") if s.strip()]
 EMBED_BATCH_SIZE = int(os.environ.get("EMBED_BATCH_SIZE", "8"))
 EMBED_REQUEST_INTERVAL = float(os.environ.get("EMBED_REQUEST_INTERVAL", "20"))
+
+# === BoschAI: LinkedIn (lane A) — BEGIN ===
+# LinkedIn growth engine — uses ANTHROPIC_API_KEY (already configured above).
+# LINKEDIN_DRAFTING_MODEL: override the Claude model used for LinkedIn drafts.
+LINKEDIN_DRAFTING_MODEL = os.environ.get("LINKEDIN_DRAFTING_MODEL", "claude-sonnet-4-6")
+# === BoschAI: LinkedIn (lane A) — END ===

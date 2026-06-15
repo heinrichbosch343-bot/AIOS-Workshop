@@ -65,6 +65,12 @@ def start_scheduler():
     print("[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, daily brief 06:00 SAST, sign-off watcher every 30 min", flush=True)
 
 
+# === BoschAI: LinkedIn (lane A) — BEGIN ===
+# No scheduled LinkedIn jobs — drafting is on-demand via /post, /reply, /ideas.
+# A weekly content reminder could be added here later if Heinrich wants one.
+# === BoschAI: LinkedIn (lane A) — END ===
+
+
 def stop_scheduler():
     global _scheduler
     if _scheduler:

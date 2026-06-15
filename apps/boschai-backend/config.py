@@ -34,3 +34,14 @@ EMBEDDING_DIM = int(os.environ.get("EMBEDDING_DIM", "1024"))
 POOL_CLIENT_ROOTS = [s.strip() for s in os.environ.get("POOL_CLIENT_ROOTS", "").split(",") if s.strip()]
 EMBED_BATCH_SIZE = int(os.environ.get("EMBED_BATCH_SIZE", "8"))
 EMBED_REQUEST_INTERVAL = float(os.environ.get("EMBED_REQUEST_INTERVAL", "20"))
+
+# === BoschAI: Follow-ups (lane B) — BEGIN ===
+# Email auto-follow-up engine. Defaults to OFF + warmup (draft-only).
+FOLLOWUP_ENABLED = os.environ.get("FOLLOWUP_ENABLED", "false").lower() in ("true", "1", "yes")
+FOLLOWUP_ALLOWLIST = [s.strip() for s in os.environ.get("FOLLOWUP_ALLOWLIST", "").split(",") if s.strip()]
+FOLLOWUP_DELAY_DAYS = int(os.environ.get("FOLLOWUP_DELAY_DAYS", "3"))
+FOLLOWUP_DAILY_CAP = int(os.environ.get("FOLLOWUP_DAILY_CAP", "5"))
+FOLLOWUP_KILL_SWITCH = os.environ.get("FOLLOWUP_KILL_SWITCH", "false").lower() in ("true", "1", "yes")
+FOLLOWUP_WARMUP = os.environ.get("FOLLOWUP_WARMUP", "true").lower() in ("true", "1", "yes")
+FOLLOWUP_MAX_ATTEMPTS = int(os.environ.get("FOLLOWUP_MAX_ATTEMPTS", "3"))
+# === BoschAI: Follow-ups (lane B) — END ===

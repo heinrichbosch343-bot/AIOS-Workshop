@@ -240,6 +240,30 @@ TOOLS = [
             },
         },
     },
+    # === BoschAI: Follow-ups (lane B) — BEGIN ===
+    {
+        "name": "list_followups",
+        "description": (
+            "Show the status of the auto-follow-up engine: pending threads, today's send count, "
+            "whether warmup or kill switch is active. Use when Heinrich asks about follow-ups."
+        ),
+        "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "toggle_followup_killswitch",
+        "description": (
+            "Turn the follow-up kill switch on or off. When ON, all automatic follow-ups are "
+            "paused immediately. Use when Heinrich says to stop or resume follow-ups."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "on": {"type": "boolean", "description": "true = engage kill switch (pause), false = disengage (resume)"},
+            },
+            "required": ["on"],
+        },
+    },
+    # === BoschAI: Follow-ups (lane B) — END ===
 ]
 
 
@@ -313,6 +337,15 @@ def run_tool(name: str, tool_input: dict, source: str = None) -> dict:
             summary = cs.pipeline_summary()
             clients = cs.list_clients(stage=tool_input.get("stage"))
             return {"clients": clients, "counts": summary["counts"], "anchor_clients": summary["anchor"]}
+        # === BoschAI: Follow-ups (lane B) — BEGIN ===
+        if name == "list_followups":
+            from services.followup import get_status_summary
+            return get_status_summary()
+        if name == "toggle_followup_killswitch":
+            from services.followup import set_kill_switch
+            new_state = set_kill_switch(tool_input["on"])
+            return {"kill_switch": new_state, "message": "Kill switch engaged" if new_state else "Kill switch off"}
+        # === BoschAI: Follow-ups (lane B) — END ===
         return {"error": f"Unknown tool: {name}"}
     except Exception as e:
         return {"error": str(e)}

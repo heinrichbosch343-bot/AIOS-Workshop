@@ -60,9 +60,17 @@ def start_scheduler():
     sch.add_job(_safe(signoff_watcher.check_signoffs),
                 IntervalTrigger(minutes=30),
                 id="signoff_watcher", replace_existing=True, misfire_grace_time=600)
+
+    # === BoschAI: Follow-ups (lane B) — BEGIN ===
+    from services import followup as followup_service
+    sch.add_job(_safe(followup_service.run),
+                CronTrigger(hour="8,11,14", minute=0, timezone=TZ),
+                id="followup_engine", replace_existing=True, misfire_grace_time=1800)
+    # === BoschAI: Follow-ups (lane B) — END ===
+
     sch.start()
     _scheduler = sch
-    print("[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, daily brief 06:00 SAST, sign-off watcher every 30 min", flush=True)
+    print("[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, daily brief 06:00 SAST, sign-off watcher every 30 min, follow-ups 08/11/14:00", flush=True)
 
 
 def stop_scheduler():

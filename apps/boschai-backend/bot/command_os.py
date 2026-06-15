@@ -248,6 +248,67 @@ async def handle_myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(f"This chat's id is: {update.effective_chat.id}")
 
 
+# === BoschAI: Follow-ups (lane B) — BEGIN ===
+
+async def handle_followups(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """List pending follow-ups and today's activity."""
+    from services.followup import get_status_summary
+
+    summary = get_status_summary()
+    mode = "WARMUP (drafts only)" if summary["warmup"] else "LIVE"
+    enabled = "ON" if summary["enabled"] else "OFF"
+    kill = "ENGAGED" if summary["kill_switch"] else "off"
+
+    lines = [
+        f"Follow-up engine: {enabled} | Mode: {mode}",
+        f"Kill switch: {kill}",
+        f"Today: {summary['today_sent']}/{summary['daily_cap']} sent/drafted",
+        "",
+    ]
+
+    if summary["pending"]:
+        lines.append(f"Pending follow-ups ({summary['pending_count']}):")
+        for item in summary["pending"][:10]:
+            days = ""
+            if item.get("original_sent_at"):
+                try:
+                    from datetime import datetime, timezone
+                    sent = datetime.fromisoformat(item["original_sent_at"])
+                    if sent.tzinfo is None:
+                        sent = sent.replace(tzinfo=timezone.utc)
+                    age = (datetime.now(timezone.utc) - sent).days
+                    days = f" ({age}d ago)"
+                except Exception:
+                    pass
+            attempts = item.get("attempt_count", 0)
+            lines.append(f"  {item.get('contact_name', item.get('contact_email', '?'))}")
+            lines.append(f"    {item.get('subject', '?')}{days} | {attempts} attempt(s)")
+    else:
+        lines.append("No pending follow-ups.")
+
+    await _reply_long(update, "\n".join(lines))
+
+
+async def handle_killswitch(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /killswitch on|off — toggle the follow-up kill switch."""
+    from services.followup import set_kill_switch
+
+    args = context.args
+    if not args or args[0].lower() not in ("on", "off"):
+        await update.message.reply_text("Usage: /killswitch on|off")
+        return
+
+    on = args[0].lower() == "on"
+    set_kill_switch(on)
+    if on:
+        state = "ENGAGED — all follow-ups paused.\nNote: restarting the server resets this. Set FOLLOWUP_KILL_SWITCH=true in env vars for persistence."
+    else:
+        state = "OFF — follow-ups active"
+    await update.message.reply_text(f"Kill switch: {state}")
+
+# === BoschAI: Follow-ups (lane B) — END ===
+
+
 async def start_bot():
     global _bot_app
     _bot_app = Application.builder().token(TELEGRAM_BOT_TOKEN).build()
@@ -264,6 +325,10 @@ async def start_bot():
     _bot_app.add_handler(CommandHandler("compile", handle_compile, filters=chat_filter))
     _bot_app.add_handler(CommandHandler("scaffold", handle_scaffold, filters=chat_filter))
     _bot_app.add_handler(CommandHandler("brief", handle_brief, filters=chat_filter))
+    # === BoschAI: Follow-ups (lane B) — BEGIN ===
+    _bot_app.add_handler(CommandHandler("followups", handle_followups, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("killswitch", handle_killswitch, filters=chat_filter))
+    # === BoschAI: Follow-ups (lane B) — END ===
     _bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & chat_filter, handle_message))
 
     await _bot_app.initialize()

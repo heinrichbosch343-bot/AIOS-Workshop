@@ -306,6 +306,37 @@ async def handle_killswitch(update: Update, context: ContextTypes.DEFAULT_TYPE):
         state = "OFF — follow-ups active"
     await update.message.reply_text(f"Kill switch: {state}")
 
+
+async def handle_campaigns(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show campaign auto-responder status."""
+    from services.campaign_responder import get_status
+    s = get_status()
+    enabled = "ON" if s["enabled"] else "OFF"
+    kill = "ENGAGED" if s["kill_switch"] else "off"
+    lines = [
+        f"Campaign responder: {enabled} | Kill switch: {kill}",
+        f"Accounts: {s['account_count']} | Cap: {s['daily_cap']}/account/day",
+        "",
+    ]
+    for acct, count in s.get("today_replies", {}).items():
+        lines.append(f"  {acct}: {count} replies today")
+    if not s.get("today_replies"):
+        lines.append("  No activity today.")
+    await _reply_long(update, "\n".join(lines))
+
+
+async def handle_campaign_kill(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /campaignkill on|off — toggle campaign responder kill switch."""
+    from services.campaign_responder import set_kill_switch
+    args = context.args
+    if not args or args[0].lower() not in ("on", "off"):
+        await update.message.reply_text("Usage: /campaignkill on|off")
+        return
+    on = args[0].lower() == "on"
+    set_kill_switch(on)
+    state = "ENGAGED — campaign replies paused" if on else "OFF — campaign replies active"
+    await update.message.reply_text(f"Campaign kill switch: {state}")
+
 # === BoschAI: Follow-ups (lane B) — END ===
 
 
@@ -328,6 +359,8 @@ async def start_bot():
     # === BoschAI: Follow-ups (lane B) — BEGIN ===
     _bot_app.add_handler(CommandHandler("followups", handle_followups, filters=chat_filter))
     _bot_app.add_handler(CommandHandler("killswitch", handle_killswitch, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("campaigns", handle_campaigns, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("campaignkill", handle_campaign_kill, filters=chat_filter))
     # === BoschAI: Follow-ups (lane B) — END ===
     _bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & chat_filter, handle_message))
 

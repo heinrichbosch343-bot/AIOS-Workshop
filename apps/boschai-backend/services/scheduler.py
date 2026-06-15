@@ -63,9 +63,13 @@ def start_scheduler():
 
     # === BoschAI: Follow-ups (lane B) — BEGIN ===
     from services import followup as followup_service
+    from services import campaign_responder
     sch.add_job(_safe(followup_service.run),
                 CronTrigger(hour="8,11,14", minute=0, timezone=TZ),
                 id="followup_engine", replace_existing=True, misfire_grace_time=1800)
+    sch.add_job(_safe(campaign_responder.run),
+                IntervalTrigger(minutes=10),
+                id="campaign_responder", replace_existing=True, misfire_grace_time=300)
     # === BoschAI: Follow-ups (lane B) — END ===
 
     sch.start()

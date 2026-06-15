@@ -1,3 +1,4 @@
+import json
 import os
 from dotenv import find_dotenv, load_dotenv
 
@@ -44,4 +45,17 @@ FOLLOWUP_DAILY_CAP = int(os.environ.get("FOLLOWUP_DAILY_CAP", "5"))
 FOLLOWUP_KILL_SWITCH = os.environ.get("FOLLOWUP_KILL_SWITCH", "false").lower() in ("true", "1", "yes")
 FOLLOWUP_WARMUP = os.environ.get("FOLLOWUP_WARMUP", "true").lower() in ("true", "1", "yes")
 FOLLOWUP_MAX_ATTEMPTS = int(os.environ.get("FOLLOWUP_MAX_ATTEMPTS", "3"))
+
+# Campaign auto-responder — monitors outreach email accounts and auto-replies
+# to interested prospects. Accounts are configured as a JSON array in .env:
+#   CAMPAIGN_ACCOUNTS=[{"email":"h@boschai.com","password":"...","imap_host":"imap.provider.com","smtp_host":"smtp.provider.com"}]
+CAMPAIGN_ENABLED = os.environ.get("CAMPAIGN_ENABLED", "false").lower() in ("true", "1", "yes")
+_raw_accounts = os.environ.get("CAMPAIGN_ACCOUNTS", "[]")
+try:
+    CAMPAIGN_ACCOUNTS = json.loads(_raw_accounts) if _raw_accounts.strip() else []
+except Exception:
+    CAMPAIGN_ACCOUNTS = []
+CAMPAIGN_REPLY_DELAY_MINUTES = int(os.environ.get("CAMPAIGN_REPLY_DELAY_MINUTES", "10"))
+CAMPAIGN_DAILY_CAP_PER_ACCOUNT = int(os.environ.get("CAMPAIGN_DAILY_CAP_PER_ACCOUNT", "50"))
+CAMPAIGN_KILL_SWITCH = os.environ.get("CAMPAIGN_KILL_SWITCH", "false").lower() in ("true", "1", "yes")
 # === BoschAI: Follow-ups (lane B) — END ===

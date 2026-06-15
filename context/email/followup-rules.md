@@ -1,54 +1,86 @@
-# Email Follow-up Rules
+# Email Auto-Reply & Follow-up Rules
 
-Active rules for the auto-follow-up engine (`services/followup.py`).
+Two separate systems, both in `services/`.
 
 ---
 
-## Current Mode: WARMUP (draft-only)
+## System 1: Campaign Auto-Responder (`services/campaign_responder.py`)
 
-The engine saves follow-ups as Gmail drafts for Heinrich to review. Flip to live sending only after reviewing the drafts and confirming they're good.
+Monitors 5-10 outreach email accounts. When a prospect replies to a campaign email, it classifies the reply and auto-responds within minutes.
 
-## Rules
+### Config
+
+| Setting | Default | Env Var |
+|---------|---------|---------|
+| Enabled | Off | `CAMPAIGN_ENABLED=true` |
+| Accounts | None | `CAMPAIGN_ACCOUNTS=[{"email":"...","password":"...","imap_host":"...","smtp_host":"..."}]` |
+| Reply delay | 10 min | `CAMPAIGN_REPLY_DELAY_MINUTES=10` |
+| Daily cap per account | 50 | `CAMPAIGN_DAILY_CAP_PER_ACCOUNT=50` |
+| Kill switch | Off | `CAMPAIGN_KILL_SWITCH=true` |
+
+### Account JSON Format
+
+```json
+[
+  {
+    "email": "heinrich@boschai.com",
+    "password": "app-password-here",
+    "imap_host": "imap.provider.com",
+    "imap_port": 993,
+    "smtp_host": "smtp.provider.com",
+    "smtp_port": 465
+  }
+]
+```
+
+### How It Works
+
+1. Polls each campaign inbox every 10 minutes via IMAP
+2. Classifies each reply: interested / not_interested / unsubscribe / out_of_office / bounce
+3. Interested replies get an auto-response in Heinrich's voice via SMTP
+4. Everything else is flagged and skipped
+5. All actions logged to `campaign_replies` table
+6. Telegram notification with summary
+
+### Telegram Commands
+
+- `/campaigns` — show status, account counts, today's activity
+- `/campaignkill on|off` — emergency stop for campaign replies
+
+---
+
+## System 2: Personal Nudge Drafter (`services/followup.py`)
+
+For Heinrich's personal Gmail only. Creates silent drafts for threads where contacts haven't replied.
+
+### Config
 
 | Setting | Default | Env Var |
 |---------|---------|---------|
 | Enabled | Off | `FOLLOWUP_ENABLED=true` |
-| Allowlist | Empty (no one) | `FOLLOWUP_ALLOWLIST=user@example.com,@domain.com` |
-| Delay before follow-up | 3 days | `FOLLOWUP_DELAY_DAYS=3` |
-| Daily send/draft cap | 5 | `FOLLOWUP_DAILY_CAP=5` |
+| Allowlist | Empty | `FOLLOWUP_ALLOWLIST=user@example.com,@domain.com` |
+| Delay | 3 days | `FOLLOWUP_DELAY_DAYS=3` |
+| Daily cap | 5 | `FOLLOWUP_DAILY_CAP=5` |
 | Kill switch | Off | `FOLLOWUP_KILL_SWITCH=true` |
 | Warmup (draft-only) | On | `FOLLOWUP_WARMUP=true` |
-| Max attempts per thread | 3 | `FOLLOWUP_MAX_ATTEMPTS=3` |
+| Max attempts | 3 | `FOLLOWUP_MAX_ATTEMPTS=3` |
 
-## How It Works
+### How It Works
 
-1. Scheduler runs at 08:00, 11:00, and 14:00 SAST
-2. Scans sent emails from the last ~10 days for threads with no reply past the delay
-3. For each eligible thread:
-   - Recipient must be on the allowlist (exact email or @domain)
-   - Under the daily cap
-   - Kill switch not engaged
-   - Not already at max attempts
-4. Claude drafts a short, warm follow-up in Heinrich's voice
-5. In warmup mode: saved as Gmail draft. In live mode: actually sent.
-6. Heinrich gets a Telegram notification listing what was drafted/sent
+1. Runs at 08:00, 11:00, 14:00 SAST
+2. Scans sent emails for threads with no reply past the delay
+3. Recipient must be on the allowlist
+4. Claude drafts a follow-up in Heinrich's voice
+5. Saved as Gmail draft (warmup) — Heinrich reviews and sends himself
 
-## Allowlist Format
+### Telegram Commands
 
-Comma-separated in `.env`. Supports:
-- Full addresses: `john@example.com`
-- Domain wildcards: `@example.com` (matches anyone at that domain)
+- `/followups` — show pending threads, today's count
+- `/killswitch on|off` — pause/resume personal follow-ups
 
-## Telegram Commands
+---
 
-- `/followups` — show pending threads, today's count, engine status
-- `/killswitch on` — immediately pause all follow-ups
-- `/killswitch off` — resume follow-ups
+## Migrations Required
 
-## Safety Guarantees
-
-- **Warmup default**: Nothing sends until Heinrich switches `FOLLOWUP_WARMUP=false`
-- **Allowlist**: Only pre-approved contacts receive follow-ups
-- **Daily cap**: Hard limit on how many follow-ups per day
-- **Kill switch**: Instant stop, no questions asked (via Telegram or env var)
-- **Max attempts**: Each thread gets at most 3 follow-ups before auto-stopping
+- `003_followups.sql` — personal follow-up tracking
+- `005_campaign_replies.sql` — campaign reply logging

@@ -39,4 +39,7 @@ EMBED_REQUEST_INTERVAL = float(os.environ.get("EMBED_REQUEST_INTERVAL", "20"))
 # LinkedIn growth engine — uses ANTHROPIC_API_KEY (already configured above).
 # LINKEDIN_DRAFTING_MODEL: override the Claude model used for LinkedIn drafts.
 LINKEDIN_DRAFTING_MODEL = os.environ.get("LINKEDIN_DRAFTING_MODEL", "claude-sonnet-4-6")
+# LINKEDIN_SCHEDULER_ENABLED: set to "1" to activate the daily morning draft.
+# Off by default — no API calls until Heinrich flips this on.
+LINKEDIN_SCHEDULER_ENABLED = os.environ.get("LINKEDIN_SCHEDULER_ENABLED", "0") == "1"
 # === BoschAI: LinkedIn (lane A) — END ===

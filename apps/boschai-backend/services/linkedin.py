@@ -261,3 +261,106 @@ def handle_linkedin_tool(name: str, tool_input: dict) -> dict:
         ideas = suggest_ideas(n=count, pillar=pillar)
         return {"ideas": ideas, "count": len(ideas)}
     return {"error": f"Unknown LinkedIn tool: {name}"}
+
+
+# ---------------------------------------------------------------------------
+# Scheduled morning content — generates a draft post (daily) and video ideas
+# (Mon/Wed/Fri), then sends to Telegram. Gated by LINKEDIN_SCHEDULER_ENABLED.
+# ---------------------------------------------------------------------------
+
+def suggest_video_ideas(n: int = 3) -> list[dict]:
+    """Brainstorm short-form video ideas for LinkedIn.
+
+    Returns a list of dicts: [{"title": "...", "format": "...", "hook": "...", "pillar": "..."}]
+    """
+    system = _base_system_prompt()
+    backlog = _idea_backlog()
+
+    existing = ""
+    if backlog:
+        existing = f"Avoid topics already covered here:\n{backlog}\n\n"
+
+    user_msg = (
+        f"Suggest {n} short-form video ideas for Heinrich to post on LinkedIn.\n\n"
+        f"{existing}"
+        "These are videos he'll record himself, talking to camera or screen-sharing. "
+        "60-90 seconds each. Think practical, specific, not generic advice.\n\n"
+        "For each idea, return a JSON array where each element has:\n"
+        '- "title": working title (5-10 words)\n'
+        '- "format": how to film it (e.g. "talking head", "screen share walkthrough", "before/after demo")\n'
+        '- "hook": the opening line he says in the first 3 seconds\n'
+        '- "pillar": which content pillar it falls under\n\n'
+        "Output ONLY the JSON array, no other text."
+    )
+    raw = _call_claude(system, user_msg, max_tokens=800)
+
+    cleaned = raw.strip()
+    if cleaned.startswith("```"):
+        lines = cleaned.split("\n")
+        lines = [l for l in lines if not l.strip().startswith("```")]
+        cleaned = "\n".join(lines)
+
+    try:
+        ideas = json.loads(cleaned)
+    except json.JSONDecodeError:
+        return [{"title": "Raw suggestions", "format": "talking head", "hook": raw, "pillar": "mixed"}]
+
+    return ideas if isinstance(ideas, list) else [ideas]
+
+
+def generate_morning_content(include_video_ideas: bool = False) -> str:
+    """Generate the morning LinkedIn content package and send to Telegram.
+
+    Called by the scheduler at 09:00 SAST, Mon-Fri.
+    - Always: one draft post ready to copy-paste
+    - Mon/Wed/Fri: also includes video brainstorming ideas
+
+    Returns the full message text that was sent.
+    """
+    from services.notify import send_telegram
+
+    # Pick a topic from pillars (rotates by weekday)
+    from datetime import datetime
+    weekday = datetime.now().weekday()  # 0=Mon, 4=Fri
+    pillar_rotation = [
+        "The AIOS Concept",
+        "Building in Public",
+        "AI That Actually Works",
+        "Business Owner Bandwidth",
+        "Client Stories",
+    ]
+    today_pillar = pillar_rotation[weekday % len(pillar_rotation)]
+
+    # Draft the post
+    post = draft_post(
+        f"Write about something related to: {today_pillar}. "
+        "Pick a specific angle, a real observation, or a concrete example. "
+        "Don't be generic."
+    )
+
+    lines = [
+        f"LinkedIn content for today ({datetime.now().strftime('%a %d %b')})",
+        f"Pillar: {today_pillar}",
+        "",
+        "POST DRAFT (copy-paste to LinkedIn):",
+        "",
+        post,
+    ]
+
+    if include_video_ideas:
+        videos = suggest_video_ideas(n=3)
+        lines.append("")
+        lines.append("VIDEO IDEAS (pick one to record this week):")
+        for i, v in enumerate(videos, 1):
+            title = v.get("title", "Untitled")
+            fmt = v.get("format", "")
+            hook = v.get("hook", "")
+            lines.append(f"\n{i}. {title}")
+            if fmt:
+                lines.append(f"   Format: {fmt}")
+            if hook:
+                lines.append(f"   Hook: {hook}")
+
+    message = "\n".join(lines)
+    send_telegram(message)
+    return message

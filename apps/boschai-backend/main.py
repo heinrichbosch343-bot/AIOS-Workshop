@@ -20,9 +20,13 @@ from routes.research import router as research_router
 from routes.knowledge import router as knowledge_router
 
 
-# Set DISABLE_TELEGRAM_BOT=1 to run the API without the Telegram bot poller.
-# Used for local testing so it doesn't conflict with the live Railway bot.
-BOT_ENABLED = os.getenv("DISABLE_TELEGRAM_BOT") != "1"
+# The Telegram bot + scheduler run ONLY on the Railway 24/7 host. We detect Railway via
+# its own injected env vars (RAILWAY_*), with RUN_TELEGRAM_BOT=1 as an explicit backstop.
+# A local/dev backend has neither, so it NEVER starts the bot — making it impossible for a
+# stray local copy to fight the live bot over Telegram's one-poller rule (telegram.error.Conflict).
+# DISABLE_TELEGRAM_BOT=1 still force-stops the bot anywhere (kill switch).
+ON_RAILWAY = bool(os.getenv("RAILWAY_ENVIRONMENT") or os.getenv("RAILWAY_PROJECT_ID"))
+BOT_ENABLED = (ON_RAILWAY or os.getenv("RUN_TELEGRAM_BOT") == "1") and os.getenv("DISABLE_TELEGRAM_BOT") != "1"
 
 
 @asynccontextmanager

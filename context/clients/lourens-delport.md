@@ -1,8 +1,10 @@
 # Lourens Delport
 
-**Status:** Prospect → First Client
+**Status:** Lead — discovery call pending
 **Company:** Consulting firm (name TBC)
 **Added:** 2026-05-21
+
+> Source of truth for client status is now Supabase (seeded via `scripts/seed_context.py`). This file is background detail only.
 
 ## Contact
 

@@ -182,8 +182,8 @@ TOOLS = [
                 "name": {"type": "string", "description": "Client / company / lead name"},
                 "pipeline_stage": {
                     "type": "string",
-                    "enum": ["interested", "no_reply", "meeting_booked", "follow_up_meeting", "proposal", "won", "lost"],
-                    "description": "interested = replied positively; no_reply = outreach sent, no response; meeting_booked = first call scheduled; follow_up_meeting = second meeting; proposal = proposal sent; won = closed client; lost = deal dead",
+                    "enum": ["interested", "no_reply", "meeting_booked", "follow_up_meeting", "proposal", "won", "contact_again", "lost"],
+                    "description": "interested = replied positively; no_reply = outreach sent, no response; meeting_booked = first call scheduled; follow_up_meeting = second meeting; proposal = proposal sent; won = closed client; contact_again = parked, re-engage later; lost = deal dead",
                 },
                 "email": {"type": "string", "description": "Contact email address"},
                 "industry": {"type": "string"},
@@ -205,7 +205,7 @@ TOOLS = [
             "type": "object",
             "properties": {
                 "name": {"type": "string"},
-                "stage": {"type": "string", "enum": ["interested", "no_reply", "meeting_booked", "follow_up_meeting", "proposal", "won", "lost"]},
+                "stage": {"type": "string", "enum": ["interested", "no_reply", "meeting_booked", "follow_up_meeting", "proposal", "won", "contact_again", "lost"]},
             },
             "required": ["name", "stage"],
         },
@@ -253,7 +253,7 @@ TOOLS = [
         "input_schema": {
             "type": "object",
             "properties": {
-                "stage": {"type": "string", "enum": ["interested", "no_reply", "meeting_booked", "follow_up_meeting", "proposal", "won", "lost"]},
+                "stage": {"type": "string", "enum": ["interested", "no_reply", "meeting_booked", "follow_up_meeting", "proposal", "won", "contact_again", "lost"]},
             },
         },
     },

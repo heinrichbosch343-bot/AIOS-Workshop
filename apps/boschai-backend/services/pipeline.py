@@ -1,7 +1,8 @@
 """
 pipeline.py — CRM pipeline service for Heinrich's sales funnel.
 
-Stages: interested → no_reply → meeting_booked → follow_up_meeting → proposal → won | lost
+Stages: interested → no_reply → meeting_booked → follow_up_meeting → proposal → won
+        (plus contact_again = re-engage later, and lost = dead)
 
 Provides formatted output for Telegram commands, the daily brief, and nudge
 detection (leads sitting in a stage too long).
@@ -17,11 +18,12 @@ from services import context_store as cs
 # Stage order for display and validation
 STAGES = (
     "interested", "no_reply", "meeting_booked",
-    "follow_up_meeting", "proposal", "won", "lost",
+    "follow_up_meeting", "proposal", "won", "contact_again", "lost",
 )
 
-# Active stages (excludes terminal states)
-ACTIVE_STAGES = ("interested", "no_reply", "meeting_booked", "follow_up_meeting", "proposal")
+# Active stages (excludes terminal states won/lost). contact_again is a live
+# re-engagement bucket, so it counts as active and gets nudged.
+ACTIVE_STAGES = ("interested", "no_reply", "meeting_booked", "follow_up_meeting", "proposal", "contact_again")
 
 # How many days in each stage before we nudge Heinrich
 NUDGE_THRESHOLDS = {
@@ -30,6 +32,7 @@ NUDGE_THRESHOLDS = {
     "meeting_booked": 1,       # remind day-of
     "follow_up_meeting": 3,
     "proposal": 5,
+    "contact_again": 7,        # re-engagement cadence
 }
 
 NUDGE_MESSAGES = {
@@ -38,15 +41,18 @@ NUDGE_MESSAGES = {
     "meeting_booked": "{name} has a meeting coming up — prep needed?",
     "follow_up_meeting": "Send a proposal to {name}?",
     "proposal": "Chase {name} on the proposal?",
+    "contact_again": "Time to reach back out to {name}?",
 }
 
+# Display labels — kept in sync with Heinrich's CRM board wording.
 STAGE_LABELS = {
     "interested": "Interested",
-    "no_reply": "No Reply",
+    "no_reply": "No Reply (followup)",
     "meeting_booked": "Meeting Booked",
-    "follow_up_meeting": "Follow-up Meeting",
-    "proposal": "Proposal",
+    "follow_up_meeting": "Followup Meeting Booked",
+    "proposal": "Proposal Delivered",
     "won": "Won",
+    "contact_again": "Contact Again",
     "lost": "Lost",
 }
 

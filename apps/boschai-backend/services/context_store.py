@@ -19,7 +19,7 @@ from db.client import supabase
 # The pipeline a client moves through. 'won' clients (signed, on retainer) are the KPI.
 PIPELINE_STAGES = (
     "interested", "no_reply", "meeting_booked",
-    "follow_up_meeting", "proposal", "won", "lost",
+    "follow_up_meeting", "proposal", "won", "contact_again", "lost",
 )
 EVENT_TYPES = ("client_added", "stage_changed", "context_updated", "milestone", "note")
 

@@ -48,14 +48,15 @@ TELEGRAM_FORMAT = (
     "\n\nTELEGRAM CHANNEL — you are replying inside a Telegram chat on a phone. "
     "Write CLEAN PLAIN TEXT ONLY. Do NOT use Markdown or HTML: no asterisks, underscores, "
     "hash headers, backticks, angle brackets, and NEVER a pipe/dash table — they all render as "
-    "ugly literal characters here. Keep replies short and scannable, with a blank line between "
-    "sections.\n"
+    "ugly literal characters here.\n"
+    "BE BRIEF. This is a phone chat, not an essay. Default to 1-3 short sentences. Give the answer "
+    "directly, no preamble, no recap, no sign-off. Only go longer when he explicitly asks for "
+    "detail, a draft, or a plan.\n"
     "When you list emails (or any set of items), give each its own block, numbered, like:\n"
-    "1. Sender name\n"
-    "   Short subject\n"
-    "   2h ago, unread\n"
-    "Leave a blank line between items and open with a one-line summary (e.g. 'You have 3 new "
-    "emails:'). Never dump raw fields, ids, or JSON."
+    "1. Sender name (their@email.com)\n"
+    "   One-line summary of what it's about.\n"
+    "Leave a blank line between items and open with a one-line count (e.g. 'You have 3 unanswered "
+    "emails from the last 24h:'). Never dump raw fields, ids, dates, or JSON."
 )
 
 
@@ -79,11 +80,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_message = update.message.text
     await update.message.reply_chat_action("typing")
 
-    system_prompt = await build_agent_prompt() + TELEGRAM_FORMAT
-    history = _histories.get(chat_id, [])
-    history.append({"role": "user", "content": user_message})
-
     try:
+        system_prompt = await build_agent_prompt() + TELEGRAM_FORMAT
+        history = _histories.get(chat_id, [])
+        history.append({"role": "user", "content": user_message})
         # run_agent_loop is blocking (network + tools); keep the event loop free.
         reply = await asyncio.to_thread(run_agent_loop, system_prompt, history, source="telegram")
     except Exception as e:
@@ -396,6 +396,170 @@ async def handle_ideas(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(f"Idea generation failed: {e}")
 # === BoschAI: LinkedIn (lane A) — END ===
 
+# === BoschAI: CRM Pipeline — BEGIN ===
+
+
+async def handle_pipeline(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Show the full sales pipeline grouped by stage."""
+    from services.pipeline import format_pipeline_telegram, check_nudges, format_nudges_telegram
+    await update.message.reply_chat_action("typing")
+    text = format_pipeline_telegram()
+    nudges = check_nudges()
+    if nudges:
+        text += "\n\n" + format_nudges_telegram(nudges)
+    await _reply_long(update, text)
+
+
+async def handle_addlead(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /addlead [name] [email (optional)]
+    Example: /addlead "John Smith" john@acme.com
+    """
+    from services.pipeline import add_lead
+    args = context.args
+    if not args:
+        await update.message.reply_text(
+            "Usage: /addlead [name] [email]\n"
+            "Example: /addlead John john@acme.com\n"
+            "Example: /addlead \"John Smith\" john@acme.com"
+        )
+        return
+
+    # Last arg is email if it contains @
+    email = None
+    name_parts = list(args)
+    if name_parts and "@" in name_parts[-1]:
+        email = name_parts.pop()
+    name = " ".join(name_parts)
+
+    if not name:
+        await update.message.reply_text("Please provide a name: /addlead [name] [email]")
+        return
+
+    try:
+        lead = add_lead(name, email=email, origin="telegram")
+        lines = [f"Added {lead['name']} as interested."]
+        if email:
+            lines.append(f"Email: {email}")
+        lines.append("I'll remind you in 2 days to book a meeting.")
+        lines.append("\nAdd notes? Just type them and I'll attach them.")
+        await update.message.reply_text("\n".join(lines))
+    except Exception as e:
+        await update.message.reply_text(f"Could not add lead: {e}")
+
+
+async def handle_move(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /move [name] [stage]
+    Stages: interested, no_reply, meeting_booked, follow_up_meeting, proposal, won, lost
+    """
+    from services.pipeline import move_stage, STAGES, STAGE_LABELS
+    args = context.args
+    if not args or len(args) < 2:
+        stage_list = ", ".join(STAGES)
+        await update.message.reply_text(
+            f"Usage: /move [name] [stage]\nStages: {stage_list}\n"
+            "Example: /move John meeting_booked"
+        )
+        return
+
+    # Last arg is the stage, everything before is the name
+    stage = args[-1].lower()
+    name = " ".join(args[:-1])
+
+    if stage not in STAGES:
+        # Try fuzzy match
+        matches = [s for s in STAGES if s.startswith(stage)]
+        if len(matches) == 1:
+            stage = matches[0]
+        else:
+            stage_list = ", ".join(STAGES)
+            await update.message.reply_text(f"Unknown stage '{stage}'.\nValid: {stage_list}")
+            return
+
+    try:
+        lead = move_stage(name, stage, source="telegram")
+        await update.message.reply_text(
+            f"Moved {lead['name']} to {STAGE_LABELS.get(stage, stage)}."
+        )
+    except ValueError as e:
+        await update.message.reply_text(str(e))
+    except Exception as e:
+        await update.message.reply_text(f"Could not move lead: {e}")
+
+
+async def handle_note(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /note [name] | [text]
+    Example: /note John | Great discovery call, wants proposal by Friday
+    Example: /note John Great call (single-word name, rest is note)
+    """
+    from services.pipeline import add_note
+    raw = " ".join(context.args) if context.args else ""
+    if not raw:
+        await update.message.reply_text(
+            "Usage: /note [name] | [your note]\n"
+            "Example: /note John | Great call, wants proposal by Friday\n"
+            "Example: /note John Great call"
+        )
+        return
+
+    # If user used a pipe separator, split cleanly on it (supports multi-word names)
+    if "|" in raw:
+        parts = raw.split("|", 1)
+        name = parts[0].strip()
+        note_text = parts[1].strip()
+    else:
+        # Fallback: first word is name, rest is note
+        args = context.args
+        if len(args) < 2:
+            await update.message.reply_text(
+                "Usage: /note [name] | [your note]\n"
+                "Use | to separate multi-word names from the note."
+            )
+            return
+        name = args[0]
+        note_text = " ".join(args[1:])
+
+    try:
+        add_note(name, note_text, source="telegram")
+        await update.message.reply_text(f"Note added to {name}.")
+    except ValueError as e:
+        await update.message.reply_text(str(e))
+    except Exception as e:
+        await update.message.reply_text(f"Could not add note: {e}")
+
+
+async def handle_lead(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /lead [name] — show details for a specific lead."""
+    from services.pipeline import format_lead_telegram
+    args = context.args
+    if not args:
+        await update.message.reply_text("Usage: /lead [name]\nExample: /lead John")
+        return
+
+    name = " ".join(args)
+    await update.message.reply_chat_action("typing")
+    text = format_lead_telegram(name)
+    await _reply_long(update, text)
+
+
+async def handle_removelead(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Usage: /removelead [name] — mark a lead as lost."""
+    from services.pipeline import remove_lead
+    args = context.args
+    if not args:
+        await update.message.reply_text("Usage: /removelead [name]")
+        return
+
+    name = " ".join(args)
+    try:
+        lead = remove_lead(name, source="telegram")
+        await update.message.reply_text(f"Moved {lead['name']} to Lost. Use /move to restore if needed.")
+    except ValueError as e:
+        await update.message.reply_text(str(e))
+    except Exception as e:
+        await update.message.reply_text(f"Could not remove lead: {e}")
+
+# === BoschAI: CRM Pipeline — END ===
+
 
 async def start_bot():
     global _bot_app
@@ -424,6 +588,14 @@ async def start_bot():
     _bot_app.add_handler(CommandHandler("reply", handle_linkedin_reply, filters=chat_filter))
     _bot_app.add_handler(CommandHandler("ideas", handle_ideas, filters=chat_filter))
     # === BoschAI: LinkedIn (lane A) — END ===
+    # === BoschAI: CRM Pipeline — BEGIN ===
+    _bot_app.add_handler(CommandHandler("pipeline", handle_pipeline, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("addlead", handle_addlead, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("move", handle_move, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("note", handle_note, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("lead", handle_lead, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("removelead", handle_removelead, filters=chat_filter))
+    # === BoschAI: CRM Pipeline — END ===
     _bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & chat_filter, handle_message))
 
     await _bot_app.initialize()

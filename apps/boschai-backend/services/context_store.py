@@ -16,8 +16,11 @@ from typing import Optional
 
 from db.client import supabase
 
-# The pipeline a client moves through. 'anchor' clients (signed, on retainer) are the KPI.
-PIPELINE_STAGES = ("lead", "pipeline", "anchor", "inactive")
+# The pipeline a client moves through. 'won' clients (signed, on retainer) are the KPI.
+PIPELINE_STAGES = (
+    "interested", "no_reply", "meeting_booked",
+    "follow_up_meeting", "proposal", "won", "lost",
+)
 EVENT_TYPES = ("client_added", "stage_changed", "context_updated", "milestone", "note")
 
 
@@ -65,10 +68,10 @@ def _find_client_by_name(name: str) -> Optional[dict]:
 
 
 def _stage_fields(stage: str) -> dict:
-    """Stage drives both pipeline_stage and the legacy `active` flag, kept in sync."""
+    """Stage drives both pipeline_stage and the `active` flag, kept in sync."""
     if stage not in PIPELINE_STAGES:
         raise ValueError(f"Unknown stage '{stage}'. Expected one of {PIPELINE_STAGES}.")
-    return {"pipeline_stage": stage, "active": stage != "inactive"}
+    return {"pipeline_stage": stage, "active": stage not in ("won", "lost")}
 
 
 def upsert_client(name: str, *, stage: Optional[str] = None, industry: Optional[str] = None,
@@ -138,13 +141,13 @@ def list_clients(stage: Optional[str] = None) -> list[dict]:
 
 
 def pipeline_summary() -> dict:
-    """{'counts': {stage: n}, 'anchor': n, 'clients': [...]} — used by the prompt and brief."""
+    """{'counts': {stage: n}, 'won': n, 'clients': [...]} — used by the prompt and brief."""
     clients = list_clients()
     counts: dict = {}
     for c in clients:
-        s = c.get("pipeline_stage") or "pipeline"
+        s = c.get("pipeline_stage") or "interested"
         counts[s] = counts.get(s, 0) + 1
-    return {"counts": counts, "anchor": counts.get("anchor", 0), "clients": clients}
+    return {"counts": counts, "won": counts.get("won", 0), "clients": clients}
 
 
 # ── freeform business facts (connie_context key/value) ───────────────────────

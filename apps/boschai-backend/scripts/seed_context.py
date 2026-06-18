@@ -53,37 +53,38 @@ CONTEXT_FACTS = {
         "and the expected bandwidth or revenue impact. Concrete and specific throughout."
     ),
     "strategy": (
-        "Hit $50,000 in revenue within 3 months. Close first clients via warm referrals; launch "
-        "cold outreach (Instantly AI + Apollo) within 2 weeks. Land and deliver AIOS builds fast, "
-        "then convert them into ongoing retainers."
+        "Hit R1,000,000 in revenue by 17 August 2026 (sprint period: May–August 2026). Close first "
+        "clients via warm referrals; launch cold outreach (Instantly AI + Apollo) in parallel. Land "
+        "and deliver AIOS builds fast, then convert them into ongoing retainers. Target 5–10 active "
+        "clients on monthly retainers."
     ),
     "key_metric": (
-        "Total revenue vs the $50k target, and the number of active clients on retainer. This is "
-        "the headline metric — every signed build and retainer moves it. The biggest constraint on "
-        "growth is filling the top of the pipeline (warm referrals + cold outreach) while still "
-        "delivering current builds solo."
+        "Total revenue vs the R1,000,000 target by 17 August 2026, and number of active clients on "
+        "retainer. Every signed build and retainer moves the headline number. The biggest constraint "
+        "is filling the top of the pipeline (warm referrals + cold outreach) while still delivering "
+        "current builds solo."
     ),
 }
 
 
 # ── Clients (edit to match reality; Heinrich can add more by talking to the bot) ──
-# Each entry: {"name": str, "stage": lead|pipeline|anchor|inactive,
+# Each entry: {"name": str, "stage": interested|no_reply|meeting_booked|follow_up_meeting|proposal|won|lost,
 #              "industry"?: str, "notes"?: str, "next_step"?: str}
 CLIENTS: list[dict] = [
     {
         "name": "Osun Consulting Group",
-        "stage": "anchor",
+        "stage": "won",
         "industry": "Corporate governance consulting",
         "notes": (
             "Connie Osun, CEO. Governance-report client — BoschAI delivered an AIOS-adjacent build "
             "(context + Drive knowledge pool + daily brief) to cut her manual delivery overhead. "
             "Johannesburg."
         ),
-        "next_step": "Final sign-off on the delivered build, then convert to a retainer.",
+        "next_step": "Maintain her delivered build and scope the next module to grow the engagement.",
     },
     {
         "name": "Lourens Delport",
-        "stage": "lead",
+        "stage": "interested",
         "notes": "Early-stage prospect from a warm referral. Consulting firm owner.",
         "next_step": "Run the discovery call and scope an initial AIOS build.",
     },
@@ -93,7 +94,7 @@ CLIENTS: list[dict] = [
 def seed_facts() -> None:
     rows = [{"key": k, "value": v} for k, v in CONTEXT_FACTS.items()]
     supabase.table("connie_context").upsert(rows, on_conflict="key").execute()
-    print(f"✓ seeded {len(rows)} context facts: {', '.join(CONTEXT_FACTS)}")
+    print(f"seeded {len(rows)} context facts: {', '.join(CONTEXT_FACTS)}")
 
 
 def seed_clients() -> None:
@@ -105,14 +106,14 @@ def seed_clients() -> None:
             c["name"], stage=c.get("stage"), industry=c.get("industry"),
             notes=c.get("notes"), next_step=c.get("next_step"), source="seed",
         )
-        print(f"  ✓ client: {row['name']} [{row.get('pipeline_stage')}]")
+        print(f"  OK client: {row['name']} [{row.get('pipeline_stage')}]")
 
 
 def main() -> None:
     seed_facts()
     seed_clients()
     summary = cs.pipeline_summary()
-    print(f"\nDone. Anchor clients now: {summary['anchor']}  (all stages: {summary['counts'] or 'none'})")
+    print(f"\nDone. Won clients now: {summary['won']}  (all stages: {summary['counts'] or 'none'})")
     print("Supabase is now the single source of truth — Heinrich runs entirely from Railway.")
 
 

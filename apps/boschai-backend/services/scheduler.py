@@ -61,6 +61,19 @@ def start_scheduler():
                 IntervalTrigger(minutes=30),
                 id="signoff_watcher", replace_existing=True, misfire_grace_time=600)
 
+    # === BoschAI: CRM Pipeline nudges — BEGIN ===
+    def _pipeline_nudges():
+        from services.pipeline import check_nudges, format_nudges_telegram
+        from services.notify import send_telegram
+        nudges = check_nudges()
+        if nudges:
+            send_telegram(format_nudges_telegram(nudges))
+
+    sch.add_job(_safe(_pipeline_nudges),
+                CronTrigger(hour=8, minute=30, timezone=TZ),
+                id="pipeline_nudges", replace_existing=True, misfire_grace_time=1800)
+    # === BoschAI: CRM Pipeline nudges — END ===
+
     # === BoschAI: Follow-ups (lane B) — BEGIN ===
     from services import followup as followup_service
     from services import campaign_responder
@@ -91,7 +104,7 @@ def start_scheduler():
 
     sch.start()
     _scheduler = sch
-    print("[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, daily brief 06:00 SAST, sign-off watcher every 30 min, follow-ups 08/11/14:00", flush=True)
+    print("[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, daily brief 06:00, pipeline nudges 08:30, follow-ups 08/11/14:00 SAST, sign-off watcher every 30 min", flush=True)
 
 
 def stop_scheduler():

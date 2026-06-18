@@ -560,6 +560,49 @@ async def handle_removelead(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # === BoschAI: CRM Pipeline — END ===
 
+# === BoschAI: Client memory (transcripts) — BEGIN ===
+
+async def handle_document(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """A meeting transcript was uploaded. Read it, summarise it, and save it to the
+    client's living memory. Tip: add the client's name as the file caption; otherwise
+    I'll infer it from the transcript."""
+    doc = update.message.document
+    if not doc:
+        return
+    caption = (update.message.caption or "").strip() or None
+
+    await update.message.reply_chat_action("typing")
+    await update.message.reply_text("Got the file — reading the transcript…")
+
+    try:
+        tg_file = await context.bot.get_file(doc.file_id)
+        raw = bytes(await tg_file.download_as_bytearray())
+        from services.transcripts import ingest_transcript
+        result = await asyncio.to_thread(
+            ingest_transcript, raw, doc.file_name or "", caption, "telegram"
+        )
+    except ValueError as e:
+        await update.message.reply_text(str(e))
+        return
+    except Exception as e:
+        await update.message.reply_text(f"Couldn't process that file: {e}")
+        return
+
+    tag = " (new client added)" if result.get("client_created") else ""
+    lines = [f"Saved to {result['client_name']}'s memory{tag}."]
+    if result.get("summary"):
+        lines.append("")
+        lines.append(result["summary"])
+    if result.get("brief"):
+        lines.append("")
+        lines.append("Updated brief:")
+        lines.append(result["brief"])
+    lines.append("")
+    lines.append(f"Ask me anytime: \"what are we building for {result['client_name']}?\"")
+    await _reply_long(update, "\n".join(lines))
+
+# === BoschAI: Client memory (transcripts) — END ===
+
 
 async def start_bot():
     global _bot_app
@@ -596,6 +639,9 @@ async def start_bot():
     _bot_app.add_handler(CommandHandler("lead", handle_lead, filters=chat_filter))
     _bot_app.add_handler(CommandHandler("removelead", handle_removelead, filters=chat_filter))
     # === BoschAI: CRM Pipeline — END ===
+    # === BoschAI: Client memory (transcripts) — BEGIN ===
+    _bot_app.add_handler(MessageHandler(filters.Document.ALL & chat_filter, handle_document))
+    # === BoschAI: Client memory (transcripts) — END ===
     _bot_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND & chat_filter, handle_message))
 
     await _bot_app.initialize()

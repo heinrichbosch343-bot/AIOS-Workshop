@@ -27,6 +27,10 @@ from googleapiclient.discovery import build as gbuild
 from services.linkedin import LINKEDIN_TOOLS, handle_linkedin_tool
 # === BoschAI: LinkedIn (lane A) — END ===
 
+# === BoschAI: Client memory (transcripts) — BEGIN ===
+from services.transcripts import CLIENT_MEMORY_TOOLS, handle_client_memory_tool
+# === BoschAI: Client memory (transcripts) — END ===
+
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 MODEL = "claude-sonnet-4-6"
 MAX_TOOL_ROUNDS = 8
@@ -307,6 +311,10 @@ TOOLS = [
 TOOLS.extend(LINKEDIN_TOOLS)
 # === BoschAI: LinkedIn (lane A) — END ===
 
+# === BoschAI: Client memory (transcripts) — BEGIN ===
+TOOLS.extend(CLIENT_MEMORY_TOOLS)
+# === BoschAI: Client memory (transcripts) — END ===
+
 
 def run_tool(name: str, tool_input: dict, source: str = None) -> dict:
     """Execute a tool and return a JSON-serialisable result (never raises)."""
@@ -421,6 +429,10 @@ def run_tool(name: str, tool_input: dict, source: str = None) -> dict:
         # === BoschAI: LinkedIn (lane A) — BEGIN ===
         if name.startswith("draft_linkedin") or name == "suggest_linkedin_ideas":
             return handle_linkedin_tool(name, tool_input)
+        # === BoschAI: Client memory (transcripts) — BEGIN ===
+        if name in ("get_client_brief", "search_client_transcripts"):
+            return handle_client_memory_tool(name, tool_input)
+        # === BoschAI: Client memory (transcripts) — END ===
         # === BoschAI: LinkedIn (lane A) — END ===
         return {"error": f"Unknown tool: {name}"}
     except Exception as e:

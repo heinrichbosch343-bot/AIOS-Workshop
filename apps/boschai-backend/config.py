@@ -14,7 +14,7 @@ API_SECRET_KEY = os.environ["API_SECRET_KEY"]
 # Google Drive OAuth — set these after creating credentials in Google Cloud Console
 GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
-GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:7000/auth/google/callback")
+GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
 
 # Firecrawl — powers the Deep Research tab (web search + website scraping)
 FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY")

@@ -2,7 +2,7 @@
 Google Drive OAuth — one-time setup flow.
 
 Usage:
-  1. Visit /auth/google in a browser (proxied via the local dashboard on port 7000)
+  1. Visit /auth/google in a browser (proxied via the local dashboard on port 8000)
   2. Approve access in Google's consent screen
   3. Token is saved to the `google_tokens` Supabase table
   4. All Drive features are now active. Token refreshes automatically.

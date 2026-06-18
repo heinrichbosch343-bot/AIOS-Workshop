@@ -41,6 +41,15 @@ def _header(headers: list[dict], name: str) -> str:
     return ""
 
 
+def _addr(from_value: str) -> str:
+    """Extract the bare email address from a From header (e.g. 'Jane <j@x.com>' -> 'j@x.com')."""
+    m = re.search(r"<([^>]+)>", from_value or "")
+    if m:
+        return m.group(1).strip().lower()
+    m = re.search(r"[\w.+-]+@[\w.-]+\.\w+", from_value or "")
+    return m.group(0).lower() if m else (from_value or "").strip()
+
+
 def _extract_body(payload: dict) -> str:
     """Walk the MIME tree and return the best plain-text body we can find."""
     mime = payload.get("mimeType", "")
@@ -234,6 +243,7 @@ def list_inbox(max_results: int = 15, q: str = "in:inbox category:primary",
             "id": msg["id"],
             "thread_id": msg.get("threadId"),
             "from": from_value,
+            "email": _addr(from_value),
             "subject": _header(headers, "Subject") or "(no subject)",
             "date": _header(headers, "Date"),
             "snippet": msg.get("snippet", ""),

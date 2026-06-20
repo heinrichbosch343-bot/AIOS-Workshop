@@ -177,7 +177,7 @@ def _nudges_block(d: dict, html: bool = True) -> str:
     lines = [head]
     for nud in nudges[:6]:
         msg = nud.get("message", "")
-        lines.append(f"• {escape(msg) if html else msg}")
+        lines.append(f"• {escape(msg, quote=False) if html else msg}")
     return "\n".join(lines)
 
 
@@ -193,7 +193,7 @@ def _builds_block(d: dict, html: bool = True) -> str:
         line = f"• {b['name']} — {what}"
         if b.get("deadline"):
             line += f" · due {b['deadline']}"
-        lines.append(escape(line) if html else line)
+        lines.append(escape(line, quote=False) if html else line)
     return "\n".join(lines)
 
 
@@ -214,7 +214,7 @@ def _meetings_block(d: dict, html: bool = True) -> str:
             line += f" — {who}"
         if emails:
             line += f" ({emails})"
-        lines.append(escape(line) if html else line)
+        lines.append(escape(line, quote=False) if html else line)
     return "\n".join(lines)
 
 
@@ -298,7 +298,7 @@ def send_daily_brief() -> dict:
         if block:
             parts.append(block)
     focus = write_focus(d)
-    parts.append("🎯 <b>Today's focus:</b>\n" + escape(focus))
+    parts.append("🎯 <b>Today's focus:</b>\n" + escape(focus, quote=False))
     builds = _builds_block(d, html=True)
     if builds:
         parts.append(builds)

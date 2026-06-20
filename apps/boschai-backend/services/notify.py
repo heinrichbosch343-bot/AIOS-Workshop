@@ -21,5 +21,12 @@ def send_telegram(text: str, chat_id: str = None, message_thread_id: int = None)
     if message_thread_id is not None:
         payload["message_thread_id"] = message_thread_id
     resp = httpx.post(url, json=payload, timeout=15)
-    resp.raise_for_status()
+    if resp.status_code != 200:
+        # Surface Telegram's actual reason WITHOUT leaking the bot token, which is baked
+        # into the request URL (httpx's own error string would include it).
+        try:
+            reason = resp.json().get("description", resp.text)
+        except Exception:
+            reason = resp.text
+        raise RuntimeError(f"Telegram error {resp.status_code}: {reason}")
     return resp.json()

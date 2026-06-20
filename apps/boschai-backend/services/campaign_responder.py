@@ -25,7 +25,7 @@ from email.mime.text import MIMEText
 
 import anthropic
 
-from config import ANTHROPIC_API_KEY
+from config import ANTHROPIC_API_KEY, CALENDAR_BOOKING_LINK
 from db.client import supabase
 from services.notify import send_telegram
 
@@ -177,12 +177,13 @@ def _classify_reply(subject: str, body: str) -> dict:
 # Reply composition
 # ---------------------------------------------------------------------------
 
-_COMPOSE_PROMPT = """You are replying to a prospect who responded to a cold outreach email from Heinrich Bosch (BoschAI — builds custom AI Operating Systems for businesses).
+_COMPOSE_PROMPT = f"""You are replying to a prospect who responded to a cold outreach email from Heinrich Bosch (BoschAI — builds custom AI Operating Systems for businesses).
 
 Write a SHORT, natural reply that:
 - Acknowledges what they said
 - Is warm and professional, not salesy or desperate
 - Moves toward a quick call/meeting if they seem interested
+- When you invite them to a call, include Heinrich's booking link on its OWN line so they can pick a time directly: {CALENDAR_BOOKING_LINK}
 - Keeps Heinrich's voice: sharp, direct, concise, no fluff
 - 2-5 sentences max
 - Signed "Heinrich"
@@ -190,7 +191,7 @@ Write a SHORT, natural reply that:
 Do NOT invent specifics about their business. Keep it general until the call.
 
 Respond with ONLY a JSON object:
-{"reply_body": "<the reply text>"}"""
+{{"reply_body": "<the reply text>"}}"""
 
 
 def _compose_reply(subject: str, prospect_body: str, prospect_name: str) -> str | None:

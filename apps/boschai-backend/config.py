@@ -25,6 +25,13 @@ GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
 GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET")
 GOOGLE_REDIRECT_URI = os.environ.get("GOOGLE_REDIRECT_URI", "http://localhost:8000/auth/google/callback")
 
+# Heinrich's public booking link (Google Calendar appointment page). The AI drops it into
+# outbound emails when — and only when — it's inviting a lead to book a call, so he never
+# copy-pastes it. Override via the CALENDAR_BOOKING_LINK env var if the link ever changes.
+CALENDAR_BOOKING_LINK = os.environ.get(
+    "CALENDAR_BOOKING_LINK", "https://calendar.app.google/4rJxHnnBUKvYrUNV6"
+)
+
 # Firecrawl — powers the Deep Research tab (web search + website scraping)
 FIRECRAWL_API_KEY = os.environ.get("FIRECRAWL_API_KEY")
 

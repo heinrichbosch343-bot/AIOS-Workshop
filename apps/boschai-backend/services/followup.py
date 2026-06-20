@@ -15,7 +15,7 @@ from email.mime.text import MIMEText
 
 import anthropic
 
-from config import ANTHROPIC_API_KEY
+from config import ANTHROPIC_API_KEY, CALENDAR_BOOKING_LINK
 from core.prime import build_system_prompt
 from core.writing_style import writing_style_block
 from db.client import supabase
@@ -55,7 +55,7 @@ def _cfg():
 _ai = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 _MODEL = "claude-sonnet-4-6"
 
-_FOLLOWUP_INSTRUCTIONS = """You are writing a follow-up email for Heinrich Bosch (BoschAI).
+_FOLLOWUP_INSTRUCTIONS = f"""You are writing a follow-up email for Heinrich Bosch (BoschAI).
 
 The original email was sent by Heinrich and the recipient has not replied after several days.
 Write a SHORT, warm, professional follow-up that:
@@ -65,12 +65,13 @@ Write a SHORT, warm, professional follow-up that:
 - Keeps Heinrich's voice: sharp, direct, concise
 - Signed "Heinrich Bosch"
 - 2-4 sentences max
+- If — and only if — it fits naturally to suggest a call, invite them to grab a time and put Heinrich's booking link on its OWN line: {CALENDAR_BOOKING_LINK}
 
 Do NOT invent facts, dates, figures, or commitments. If a detail is needed,
 leave a [bracketed placeholder].
 
 Respond with ONLY a JSON object:
-{"followup_body": "<the follow-up email text>"}"""
+{{"followup_body": "<the follow-up email text>"}}"""
 
 
 def _compose_followup(original_subject: str, original_body: str,

@@ -109,4 +109,12 @@ Industry: {c.get("industry", "")}
 Background: {c.get("background", "")}
 Notes: {c.get("relationship_notes", "")}"""
 
+    from config import CALENDAR_BOOKING_LINK
+    prompt += (
+        f"\n\nBooking link: When you draft or send an email that invites someone to book or "
+        f"schedule a call, include Heinrich's booking link on its OWN line so he never has to "
+        f"paste it: {CALENDAR_BOOKING_LINK}. Only include it when you're actually proposing a "
+        f"call — never otherwise."
+    )
+
     return prompt

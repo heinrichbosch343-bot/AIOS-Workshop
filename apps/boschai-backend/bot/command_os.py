@@ -263,8 +263,12 @@ async def handle_dailybrief(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Generate and send today's daily brief on demand — it posts into the configured
     Daily Brief tab (TELEGRAM_BRIEF_CHAT_ID / TELEGRAM_BRIEF_TOPIC_ID), wherever you run
     this from. Handy for testing the routing and for an on-demand brief any time of day."""
+    from config import TELEGRAM_BRIEF_CHAT_ID, TELEGRAM_BRIEF_TOPIC_ID
     await update.message.reply_chat_action("typing")
-    await update.message.reply_text("Building today's brief… (about 20–30 seconds)")
+    await update.message.reply_text(
+        f"Building today's brief… (about 20–30 seconds)\n"
+        f"Target → chat {TELEGRAM_BRIEF_CHAT_ID}, topic {TELEGRAM_BRIEF_TOPIC_ID}"
+    )
     try:
         from services.daily_brief import send_daily_brief
         await asyncio.to_thread(send_daily_brief)

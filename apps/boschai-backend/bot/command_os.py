@@ -259,6 +259,21 @@ async def handle_myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("\n".join(lines))
 
 
+async def handle_dailybrief(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Generate and send today's daily brief on demand — it posts into the configured
+    Daily Brief tab (TELEGRAM_BRIEF_CHAT_ID / TELEGRAM_BRIEF_TOPIC_ID), wherever you run
+    this from. Handy for testing the routing and for an on-demand brief any time of day."""
+    await update.message.reply_chat_action("typing")
+    await update.message.reply_text("Building today's brief… (about 20–30 seconds)")
+    try:
+        from services.daily_brief import send_daily_brief
+        await asyncio.to_thread(send_daily_brief)
+    except Exception as e:
+        await update.message.reply_text(f"Couldn't send the brief: {e}")
+        return
+    await update.message.reply_text("Done — posted to the Daily Brief tab. ✅")
+
+
 # === BoschAI: Follow-ups (lane B) — BEGIN ===
 
 async def handle_followups(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -625,6 +640,7 @@ async def start_bot():
 
     _bot_app.add_handler(CommandHandler("myid", handle_myid))  # open: lets you find your id
     _bot_app.add_handler(CommandHandler("start", handle_start, filters=chat_filter))
+    _bot_app.add_handler(CommandHandler("dailybrief", handle_dailybrief, filters=chat_filter))
     _bot_app.add_handler(CommandHandler("waiting", handle_waiting, filters=chat_filter))
     _bot_app.add_handler(CommandHandler("signoffs", handle_signoffs, filters=chat_filter))
     _bot_app.add_handler(CommandHandler("done", handle_done, filters=chat_filter))

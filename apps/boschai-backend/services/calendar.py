@@ -29,15 +29,15 @@ def _format(event: dict) -> dict:
     else:  # all-day event
         time_str = "all day"
         date_str = start.get("date", "")
-    attendees = [
-        a.get("displayName") or a.get("email", "")
-        for a in event.get("attendees", []) if not a.get("self")
-    ]
+    guests = [a for a in event.get("attendees", []) if not a.get("self")]
+    attendees = [a.get("displayName") or a.get("email", "") for a in guests]
+    emails = [a.get("email", "") for a in guests if a.get("email")]
     return {
         "time": time_str,
         "date": date_str,
         "title": event.get("summary", "(no title)"),
         "with": [a for a in attendees if a][:6],
+        "emails": emails[:6],
         "location": event.get("location", ""),
     }
 

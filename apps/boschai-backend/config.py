@@ -9,6 +9,15 @@ SUPABASE_SERVICE_ROLE_KEY = os.environ["SUPABASE_SERVICE_ROLE_KEY"]
 ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
 TELEGRAM_BOT_TOKEN = os.environ["TELEGRAM_BOT_TOKEN"]
 TELEGRAM_CHAT_ID = os.environ["TELEGRAM_CHAT_ID"]
+# Where the daily brief is posted. Set to a group chat id (a negative number, e.g.
+# -1001234567890) to send the brief into a Telegram group instead of Heinrich's DM.
+# Falls back to the personal chat id when unset, so nothing breaks until it's filled in.
+TELEGRAM_BRIEF_CHAT_ID = os.environ.get("TELEGRAM_BRIEF_CHAT_ID") or TELEGRAM_CHAT_ID
+# Which topic (tab) inside the brief group to post into. Telegram "topics" each have a
+# numeric id; leave empty to post to the group's General tab. Find it by running /myid
+# inside the Daily Brief tab — the bot replies with the exact value to paste here.
+_raw_brief_topic = (os.environ.get("TELEGRAM_BRIEF_TOPIC_ID") or "").strip()
+TELEGRAM_BRIEF_TOPIC_ID = int(_raw_brief_topic) if _raw_brief_topic.lstrip("-").isdigit() else None
 API_SECRET_KEY = os.environ["API_SECRET_KEY"]
 
 # Google Drive OAuth — set these after creating credentials in Google Cloud Console

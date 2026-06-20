@@ -189,6 +189,7 @@ TOOLS = [
                 "industry": {"type": "string"},
                 "notes": {"type": "string", "description": "Relationship notes / context"},
                 "next_step": {"type": "string", "description": "What's needed to move this lead forward"},
+                "deadline": {"type": "string", "description": "Build/delivery deadline for this client as YYYY-MM-DD (e.g. 2026-06-26). Shows in the daily brief's Builds & deadlines list."},
                 "lead_source": {"type": "string", "description": "Where this lead came from: campaign, referral, inbound, other"},
                 "drive_folder_id": {"type": "string", "description": "Google Drive folder id, if known"},
             },
@@ -381,6 +382,8 @@ def run_tool(name: str, tool_input: dict, source: str = None) -> dict:
                 supabase.table("clients").update({"industry": tool_input["industry"]}).eq("id", row["id"]).execute()
             if tool_input.get("next_step"):
                 supabase.table("clients").update({"next_step": tool_input["next_step"]}).eq("id", row["id"]).execute()
+            if tool_input.get("deadline"):
+                supabase.table("clients").update({"deadline": tool_input["deadline"]}).eq("id", row["id"]).execute()
             if tool_input.get("drive_folder_id"):
                 supabase.table("clients").update({"google_drive_folder_id": tool_input["drive_folder_id"]}).eq("id", row["id"]).execute()
             return {"client": {"name": row["name"], "pipeline_stage": row.get("pipeline_stage"),

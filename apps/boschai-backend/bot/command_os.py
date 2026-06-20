@@ -244,8 +244,19 @@ async def handle_brief(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_myid(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Open command so an authorised person can discover their chat id for the allowlist."""
-    await update.message.reply_text(f"This chat's id is: {update.effective_chat.id}")
+    """Open command to discover the chat id (for the allowlist) and, when run inside a
+    group topic, that topic's id — so the daily brief can target a specific tab.
+    Run it inside the Daily Brief tab to get both values ready to paste into Railway."""
+    chat_id = update.effective_chat.id
+    thread_id = update.message.message_thread_id  # None outside a topic / in General
+    lines = [f"Chat id: {chat_id}"]
+    if thread_id is not None:
+        lines.append(f"Topic (tab) id: {thread_id}")
+        lines.append("")
+        lines.append("To send the daily brief into THIS tab, set these on Railway:")
+        lines.append(f"TELEGRAM_BRIEF_CHAT_ID={chat_id}")
+        lines.append(f"TELEGRAM_BRIEF_TOPIC_ID={thread_id}")
+    await update.message.reply_text("\n".join(lines))
 
 
 # === BoschAI: Follow-ups (lane B) — BEGIN ===

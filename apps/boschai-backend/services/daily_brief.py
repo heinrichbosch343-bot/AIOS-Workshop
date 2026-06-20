@@ -9,11 +9,12 @@ Run on a morning schedule (Railway) or on-demand via POST /daily-brief.
 """
 from datetime import datetime, timedelta, timezone
 from html import escape
+from zoneinfo import ZoneInfo
 
 import anthropic
 from googleapiclient.discovery import build as gbuild
 
-from config import ANTHROPIC_API_KEY
+from config import ANTHROPIC_API_KEY, TELEGRAM_BRIEF_CHAT_ID, TELEGRAM_BRIEF_TOPIC_ID
 from db.client import supabase
 from services import context_store as cs
 from services import email as email_service
@@ -22,8 +23,68 @@ from services.notify import send_telegram
 
 client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
 MODEL = "claude-haiku-4-5-20251001"
+SAST = ZoneInfo("Africa/Johannesburg")
 
 _TODAY_Q = "in:inbox category:primary newer_than:2d"
+# Clients with work in motion (not raw leads, not lost) belong in Builds & deadlines.
+_BUILD_STAGES = {"won", "meeting_booked", "proposal", "follow_up_meeting", "contact_again"}
+
+
+def _today_start_iso() -> str:
+    """Start of today in SAST, as a UTC ISO string — for 'today' DB filters."""
+    start = datetime.now(SAST).replace(hour=0, minute=0, second=0, microsecond=0)
+    return start.astimezone(timezone.utc).isoformat()
+
+
+def _count_campaign_replies_today() -> int:
+    """Total inbound replies that landed in the campaign accounts today (any category)."""
+    try:
+        return supabase.table("campaign_replies").select("id", count="exact") \
+            .gte("replied_at", _today_start_iso()).execute().count or 0
+    except Exception:
+        return 0
+
+
+def _new_leads_today() -> int:
+    """New interested leads today, from BOTH sources:
+      - campaign replies classified 'interested'
+      - clients newly added to the pipeline (covers leads off Heinrich's personal email)."""
+    interested = 0
+    try:
+        interested = supabase.table("campaign_replies").select("id", count="exact") \
+            .eq("category", "interested").gte("replied_at", _today_start_iso()).execute().count or 0
+    except Exception:
+        interested = 0
+    added = 0
+    try:
+        since = (datetime.now(timezone.utc) - timedelta(days=1)).isoformat()
+        added = supabase.table("business_events").select("id", count="exact") \
+            .eq("event_type", "client_added").gte("created_at", since).execute().count or 0
+    except Exception:
+        added = 0
+    return interested + added
+
+
+def _builds() -> list[dict]:
+    """Active client builds — what's being built for whom, with an optional deadline.
+    Pulled straight from client records; soonest deadline first, undated builds last."""
+    try:
+        rows = supabase.table("clients") \
+            .select("name, pipeline_stage, next_step, deadline, active").execute().data
+    except Exception:
+        # 'deadline' column not migrated yet — fall back to records without it.
+        try:
+            rows = supabase.table("clients") \
+                .select("name, pipeline_stage, next_step, active").execute().data
+        except Exception:
+            return []
+    builds = [
+        r for r in rows
+        if (r.get("pipeline_stage") in _BUILD_STAGES or r.get("active"))
+        and (r.get("next_step") or r.get("deadline"))
+    ]
+    builds.sort(key=lambda r: (r.get("deadline") is None, r.get("deadline") or ""))
+    return builds[:8]
 
 
 def _name(addr: str) -> str:
@@ -86,42 +147,58 @@ def gather() -> dict:
         "pipeline_text": pipeline_text,
         "pipeline_nudges": pipeline_nudges,
         "new_events": new_events,
+        "campaign_replies": _count_campaign_replies_today(),
+        "new_leads": _new_leads_today(),
+        "builds": _builds(),
     }
 
 
-def _stats_block(d: dict, html: bool = True) -> str:
-    """At-a-glance numbers, one per line — but only the lines that matter today.
-    Any stat that's zero/quiet is skipped, so a slow day stays short and a busy day
-    shows up to six lines. `html` bolds the counts for Telegram."""
+def _scoreboard_block(d: dict, html: bool = True) -> str:
+    """The morning scoreboard — four fixed lines, always shown (a 0 is informative too).
+    Inbox = personal Gmail today; Campaign replies = inbound to the outreach accounts;
+    New leads = interested replies + leads added; Meetings = today's calendar count."""
     def n(x) -> str:
         return f"<b>{x}</b>" if html else str(x)
 
-    rows = []
-    if len(d["received"]):
-        rows.append(f"📥 Emails received: {n(len(d['received']))}")
-    if len(d["outstanding"]):
-        rows.append(f"✉️ Awaiting reply: {n(len(d['outstanding']))}")
-    if len(d["drafts"]):
-        rows.append(f"📝 Drafts ready: {n(len(d['drafts']))}")
-    if len(d["waiting"]):
-        rows.append(f"⏳ Sign-offs pending: {n(len(d['waiting']))}")
-    counts = d.get("pipeline", {}).get("counts", {})
-    active_count = sum(v for k, v in counts.items() if k not in ("won", "lost"))
-    won_count = counts.get("won", 0)
-    if active_count or won_count:
-        rows.append(f"📊 Pipeline: {n(active_count)} active · {n(won_count)} won")
-    nudges = d.get("pipeline_nudges", [])
-    if nudges:
-        rows.append(f"🔔 Nudges: {n(len(nudges))} leads need attention")
+    return "\n".join([
+        f"📥 Inbox: {n(len(d['received']))}",
+        f"📨 Campaign replies: {n(d.get('campaign_replies', 0))}",
+        f"🌱 New leads: {n(d.get('new_leads', 0))}",
+        f"📅 Meetings today: {n(len(d['meetings']))}",
+    ])
 
-    # Fallback so the block is never empty on a genuinely quiet morning.
-    if not rows:
-        rows.append("📥 Nothing new — quiet morning.")
-    return "\n".join(rows)
+
+def _nudges_block(d: dict, html: bool = True) -> str:
+    """Where to follow up — one bullet per nudge-worthy lead. Empty string if none."""
+    nudges = d.get("pipeline_nudges", [])
+    if not nudges:
+        return ""
+    head = "🔔 <b>Nudges:</b>" if html else "🔔 Nudges:"
+    lines = [head]
+    for nud in nudges[:6]:
+        msg = nud.get("message", "")
+        lines.append(f"• {escape(msg) if html else msg}")
+    return "\n".join(lines)
+
+
+def _builds_block(d: dict, html: bool = True) -> str:
+    """What's being built for which client, with deadlines. Empty string if none."""
+    builds = d.get("builds", [])
+    if not builds:
+        return ""
+    head = "🏗 <b>Builds &amp; deadlines:</b>" if html else "🏗 Builds & deadlines:"
+    lines = [head]
+    for b in builds:
+        what = b.get("next_step") or "in progress"
+        line = f"• {b['name']} — {what}"
+        if b.get("deadline"):
+            line += f" · due {b['deadline']}"
+        lines.append(escape(line) if html else line)
+    return "\n".join(lines)
 
 
 def _meetings_block(d: dict, html: bool = True) -> str:
-    """Today's meetings, listed out (time, title, who). Empty string if none."""
+    """Today's meetings, listed out (time, title, who + their email). Empty if none."""
     meetings = d.get("meetings", [])
     if not meetings:
         return ""
@@ -131,9 +208,12 @@ def _meetings_block(d: dict, html: bool = True) -> str:
         time = m.get("time", "")
         title = m.get("title", "(no title)")
         who = ", ".join(m.get("with", []) or [])
-        line = f"• {time} {title}".strip()
+        emails = ", ".join(m.get("emails", []) or [])
+        line = f"• {time}  {title}".strip()
         if who:
-            line += f" — with {who}"
+            line += f" — {who}"
+        if emails:
+            line += f" ({emails})"
         lines.append(escape(line) if html else line)
     return "\n".join(lines)
 
@@ -196,24 +276,35 @@ def write_focus(d: dict) -> str:
 
 
 def build_brief() -> str:
-    """Plain-text preview of the full brief (stats + meetings + to-do), used by GET /daily-brief."""
+    """Plain-text preview of the full brief, used by GET /daily-brief.
+    Structure: scoreboard → meetings → nudges → today's focus → builds & deadlines."""
     d = gather()
-    parts = [_stats_block(d, html=False)]
-    meetings = _meetings_block(d, html=False)
-    if meetings:
-        parts.append(meetings)
+    parts = [_scoreboard_block(d, html=False)]
+    for block in (_meetings_block(d, html=False), _nudges_block(d, html=False)):
+        if block:
+            parts.append(block)
     parts.append("🎯 Today's focus:\n" + write_focus(d))
+    builds = _builds_block(d, html=False)
+    if builds:
+        parts.append(builds)
     return "\n\n".join(parts)
 
 
 def send_daily_brief() -> dict:
     d = gather()
-    header = "📊 <b>Daily Brief</b> · " + datetime.now().strftime("%a %d %b")
-    parts = [header, _stats_block(d, html=True)]
-    meetings = _meetings_block(d, html=True)
-    if meetings:
-        parts.append(meetings)
+    header = "📊 <b>Daily Brief</b> · " + datetime.now(SAST).strftime("%a %d %b")
+    parts = [header, _scoreboard_block(d, html=True)]
+    for block in (_meetings_block(d, html=True), _nudges_block(d, html=True)):
+        if block:
+            parts.append(block)
     focus = write_focus(d)
     parts.append("🎯 <b>Today's focus:</b>\n" + escape(focus))
-    send_telegram("\n\n".join(parts))
-    return {"sent": True, "brief": focus, "stats": _stats_block(d, html=False)}
+    builds = _builds_block(d, html=True)
+    if builds:
+        parts.append(builds)
+    send_telegram(
+        "\n\n".join(parts),
+        chat_id=TELEGRAM_BRIEF_CHAT_ID,
+        message_thread_id=TELEGRAM_BRIEF_TOPIC_ID,
+    )
+    return {"sent": True, "brief": focus}

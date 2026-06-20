@@ -108,6 +108,29 @@ TOOLS = [
         },
     },
     {
+        "name": "create_calendar_event",
+        "description": (
+            "Create an event on Heinrich's Google Calendar. Use when he asks to book, schedule, "
+            "or add a meeting, call, or reminder. Work out the exact date and time from his words "
+            "and the CURRENT DATE in your context, then pass them as ISO 8601 in SAST. ALWAYS "
+            "confirm the resolved date/time back to him in ONE line and wait for his go-ahead "
+            "before calling — e.g. 'Booking: Call with Lourens, Fri 27 Jun 10:00–10:30 — ok?'"
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {"type": "string", "description": "What the event is (becomes the calendar title)"},
+                "start": {"type": "string", "description": "Start datetime, ISO 8601 SAST, e.g. 2026-06-27T10:00:00"},
+                "end": {"type": "string", "description": "End datetime, ISO 8601 (optional; defaults to start + duration_minutes)"},
+                "duration_minutes": {"type": "integer", "description": "Length in minutes when no end is given (default 30)"},
+                "attendees": {"type": "array", "items": {"type": "string"}, "description": "Guest email addresses to invite (optional)"},
+                "location": {"type": "string", "description": "Location or video link (optional)"},
+                "description": {"type": "string", "description": "Notes / agenda (optional)"},
+            },
+            "required": ["title", "start"],
+        },
+    },
+    {
         "name": "list_pending_signoffs",
         "description": "List the sign-offs Heinrich is currently waiting on (who, what, how many days waiting).",
         "input_schema": {"type": "object", "properties": {}},
@@ -346,6 +369,16 @@ def run_tool(name: str, tool_input: dict, source: str = None) -> dict:
             days = tool_input.get("days", 1)
             events = calendar_service.today_events() if days <= 1 else calendar_service.upcoming_events(days)
             return {"events": events}
+        if name == "create_calendar_event":
+            return calendar_service.create_event(
+                title=tool_input["title"],
+                start=tool_input["start"],
+                end=tool_input.get("end"),
+                duration_minutes=tool_input.get("duration_minutes", 30),
+                attendees=tool_input.get("attendees"),
+                location=tool_input.get("location"),
+                description=tool_input.get("description"),
+            )
         if name == "list_pending_signoffs":
             return {"signoffs": get_open_signoffs()}
         if name == "list_report_projects":

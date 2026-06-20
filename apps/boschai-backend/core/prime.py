@@ -55,10 +55,19 @@ async def build_system_prompt(client_id: str = None) -> str:
     rows = supabase.table("connie_context").select("key, value").execute()
     ctx = {r["key"]: r["value"] for r in rows.data}
 
+    from datetime import datetime as _dt
+    from zoneinfo import ZoneInfo as _ZI
+    today_line = _dt.now(_ZI("Africa/Johannesburg")).strftime(
+        "Current date & time: %A, %d %B %Y, %H:%M (SAST). Use this to resolve relative "
+        "dates like 'today', 'tomorrow', 'next Friday' when scheduling or reasoning about time."
+    )
+
     prompt = f"""You are Heinrich's AI assistant — the centralized brain for BoschAI.
 You have full context on Heinrich, his business, and recent activity. Be proactive, concise,
 and write in his voice. When he asks about his day, emails, notes, or recent work, use the
 context below.
+
+{today_line}
 
 About Heinrich:
 {ctx.get("bio", "")}

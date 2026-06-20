@@ -68,3 +68,68 @@ def upcoming_events(days: int = 7) -> list[dict]:
     """Meetings from now through the next `days` days."""
     now = datetime.datetime.now(TZ)
     return _list(now, now + datetime.timedelta(days=max(1, days)))
+
+
+def _parse_dt(value: str) -> datetime.datetime:
+    """ISO 8601 string -> tz-aware datetime in SAST. A naive value (no offset) is
+    assumed to already be SAST."""
+    s = (value or "").strip().replace("Z", "+00:00")
+    dt = datetime.datetime.fromisoformat(s)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=TZ)
+    return dt.astimezone(TZ)
+
+
+def create_event(title: str, start: str, end: str = None, duration_minutes: int = 30,
+                 attendees: list = None, location: str = None,
+                 description: str = None) -> dict:
+    """Create an event on the primary calendar. `start`/`end` are ISO 8601 strings
+    (naive values treated as SAST). With no `end`, the event runs `duration_minutes`.
+    Invites `attendees` (emails) if given. Returns a short confirmation dict."""
+    try:
+        start_dt = _parse_dt(start)
+    except Exception:
+        return {"created": False, "error": f"Couldn't read the start time '{start}'. Use a date and time."}
+    end_dt = None
+    if end:
+        try:
+            end_dt = _parse_dt(end)
+        except Exception:
+            end_dt = None
+    if end_dt is None or end_dt <= start_dt:
+        end_dt = start_dt + datetime.timedelta(minutes=max(5, duration_minutes))
+
+    body = {
+        "summary": title,
+        "start": {"dateTime": start_dt.isoformat(), "timeZone": "Africa/Johannesburg"},
+        "end": {"dateTime": end_dt.isoformat(), "timeZone": "Africa/Johannesburg"},
+    }
+    guests = [a for a in (attendees or []) if a]
+    if guests:
+        body["attendees"] = [{"email": a} for a in guests]
+    if location:
+        body["location"] = location
+    if description:
+        body["description"] = description
+
+    try:
+        created = _service().events().insert(
+            calendarId="primary", body=body,
+            sendUpdates="all" if guests else "none",
+        ).execute()
+    except Exception as e:
+        msg = str(e)
+        if any(t in msg.lower() for t in ("insufficient", "forbidden", "403", "scope")):
+            msg = ("Calendar write access isn't granted yet — reconnect Google at "
+                   "/auth/google (it now asks for permission to create events).")
+        return {"created": False, "error": msg}
+
+    when = start_dt.strftime("%a %d %b %H:%M") + end_dt.strftime("–%H:%M")
+    return {
+        "created": True,
+        "title": title,
+        "when": when,
+        "attendees": guests,
+        "link": created.get("htmlLink", ""),
+        "id": created.get("id", ""),
+    }

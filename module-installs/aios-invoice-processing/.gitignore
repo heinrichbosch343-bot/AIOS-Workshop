@@ -1,0 +1,6 @@
+# Generated at install/demo time — reproducible, don't commit
+scripts/.cache/
+scripts/samples/
+scripts/demo-invoices-100/
+__pycache__/
+*.pyc

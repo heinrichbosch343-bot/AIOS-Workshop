@@ -8,6 +8,17 @@
 
 ---
 
+## 2026-06-24
+
+### Invoice Extraction Demo (LlamaParse) + Drive Demo Fix
+- Built `outputs/invoice-demo/` — "Paperwork → Data" Streamlit demo (port 8503): drag invoice PDFs → LlamaExtract (FAST mode) → clean table → download CSV
+- `invoice_extract.py` — schema-based extraction with an on-disk result cache (pre-warm so samples are instant on camera); `warm_cache.py` primes it
+- Sample data: `generate_samples.py` (4 invoices) + `generate_bulk.py` (100 invoices in `demo-invoices-100/`, R4.93M combined); one-in-twelve omit the invoice number on purpose for the "leaves blanks, never guesses" trust beat
+- Added `LLAMA_CLOUD_API_KEY` to `.env`; FAST mode keeps it to ~6 credits/page (~600 credits to warm all 100, 6% of the free 10k/month)
+- Fixed the Drive Intelligence demo (`outputs/demo-dashboard/`): installed missing `python-docx`/`pypdf`/`anthropic` into `.venv` so .docx/.pdf extraction works; identified "Proposals Demo" as the good folder
+- Explore + full film plan: `plans/explore-2026-06-24-llamaparse-invoice-demo.md`. Both videos queued to film 2026-06-25
+- Hardened `.gitignore`: token.json/token_write.json/credentials.json + invoice-demo cache
+
 ## 2026-06-15
 
 ### LinkedIn Growth Engine (Lane A)

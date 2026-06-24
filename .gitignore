@@ -8,8 +8,14 @@
 # --- Credentials (CRITICAL — never commit these) ---
 .env
 credentials/
+credentials.json
+token.json
+token_write.json
 *.pem
 *.key
+
+# --- Demo extraction cache (regenerable; can be re-warmed) ---
+outputs/invoice-demo/.cache/
 
 # --- Python ---
 __pycache__/

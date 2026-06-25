@@ -15,7 +15,7 @@ token_write.json
 *.key
 
 # --- Demo extraction cache (regenerable; can be re-warmed) ---
-outputs/invoice-demo/.cache/
+demos/invoice-extraction/.cache/
 
 # --- Python ---
 __pycache__/

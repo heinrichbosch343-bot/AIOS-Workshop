@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Boschly — LinkedIn Banner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --navy-0:#070b16;     /* deepest */
+    --navy-1:#0a1020;
+    --navy-2:#0e1530;
+    --blue:#3b82f6;
+    --blue-glow:#2563eb;
+    --blue-300:#93c5fd;
+    --blue-400:#60a5fa;
+    --line:rgba(255,255,255,0.10);
+    --text:#eef2fb;
+    --dim:#9fb0cc;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#05070d;color:var(--text);
+    font-family:'Inter',system-ui,Arial,sans-serif;min-height:100vh;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:28px}
+
+  /* ---- Stage scales the native 1584x396 banner to fit the screen for preview ---- */
+  .stage{ width:1584px; transform-origin:top center; }
+
+  /* ===================== THE BANNER (native 1584 x 396) ===================== */
+  #banner{
+    position:relative; width:1584px; height:396px; overflow:hidden;
+    background:
+      radial-gradient(120% 160% at 88% 12%, rgba(59,130,246,0.28) 0%, rgba(59,130,246,0.06) 32%, transparent 58%),
+      radial-gradient(90% 140% at 6% 95%, rgba(37,99,235,0.16) 0%, transparent 50%),
+      linear-gradient(120deg, var(--navy-0) 0%, var(--navy-1) 46%, var(--navy-2) 100%);
+    font-family:'Space Grotesk','Inter',sans-serif;
+  }
+
+  /* hairline tech grid with radial fade */
+  #banner .grid{
+    position:absolute; inset:0; pointer-events:none; opacity:.55;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
+    background-size:46px 46px;
+    -webkit-mask-image:radial-gradient(120% 120% at 82% 20%, #000 30%, transparent 78%);
+    mask-image:radial-gradient(120% 120% at 82% 20%, #000 30%, transparent 78%);
+  }
+  /* faint vignette to seat the content */
+  #banner .vignette{position:absolute;inset:0;pointer-events:none;
+    box-shadow:inset 0 0 160px rgba(0,0,0,.55), inset 0 -40px 90px rgba(0,0,0,.35);}
+
+  /* ---------------- LEFT: brand block ---------------- */
+  .content{position:absolute; left:104px; top:50%; transform:translateY(-50%); z-index:5; max-width:880px;}
+
+  .eyebrow{display:inline-flex; align-items:center; gap:11px;
+    font-family:'JetBrains Mono',monospace; font-size:13.5px; font-weight:500;
+    letter-spacing:.34em; text-transform:uppercase; color:var(--blue-300);
+    margin-bottom:22px;}
+  .eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--blue-400);
+    box-shadow:0 0 10px 2px rgba(96,165,250,.9);}
+  .eyebrow .rule{width:34px;height:1px;background:linear-gradient(90deg,rgba(147,197,253,.7),transparent);}
+
+  .lockup{display:flex; align-items:center; gap:22px;}
+  .mark{width:58px;height:58px;flex:none;filter:drop-shadow(0 0 14px rgba(59,130,246,.45));}
+  .wordmark{font-family:'Space Grotesk',sans-serif; font-weight:600;
+    font-size:84px; line-height:.92; letter-spacing:-.025em; color:#fff;
+    text-shadow:0 2px 40px rgba(59,130,246,.25);}
+  .wordmark .ai{color:var(--blue-400);} /* unused hook */
+
+  .tagline{margin-top:20px; font-family:'Inter',sans-serif; font-weight:300;
+    font-size:25px; line-height:1.32; letter-spacing:-.005em; color:var(--dim); max-width:680px;}
+  .tagline .accent{font-family:'Instrument Serif',serif; font-style:italic; font-weight:400;
+    font-size:30px; color:var(--blue-300); letter-spacing:0;}
+  .tagline strong{color:#dbe6fb;font-weight:500;}
+
+  /* thin gradient divider + handle */
+  .foot{margin-top:26px; display:flex; align-items:center; gap:18px;}
+  .foot .bar{width:54px;height:2px;border-radius:2px;
+    background:linear-gradient(90deg,var(--blue-400),rgba(96,165,250,0));}
+  .foot .handle{font-family:'JetBrains Mono',monospace; font-size:13px;
+    letter-spacing:.12em; color:#7f93b4;}
+
+  /* ---------------- RIGHT: node-graph motif ---------------- */
+  .graph{position:absolute; right:0; top:0; width:760px; height:396px; z-index:2;
+    -webkit-mask-image:linear-gradient(90deg, transparent 0%, #000 26%, #000 100%);
+    mask-image:linear-gradient(90deg, transparent 0%, #000 26%, #000 100%);}
+  .graph svg{width:100%;height:100%;display:block;}
+
+  .edge{fill:none;stroke:rgba(147,197,253,.16);stroke-width:1.4;}
+  .edge.b{stroke:rgba(147,197,253,.26);}
+  .beam{fill:none;stroke:var(--blue-400);stroke-width:2.4;stroke-linecap:round;
+    stroke-dasharray:54 460;filter:drop-shadow(0 0 7px rgba(59,130,246,.95));
+    animation:beam 2.8s linear infinite;}
+  .beam.b2{animation-duration:3.6s;animation-delay:.7s;}
+  .beam.b3{animation-duration:3.1s;animation-delay:1.4s;}
+  @keyframes beam{0%{stroke-dashoffset:514;}100%{stroke-dashoffset:0;}}
+
+  .node{fill:#bcd4ff;}
+  .node-glow{filter:drop-shadow(0 0 6px rgba(96,165,250,.85));}
+  .hub-ring{fill:none;stroke:rgba(96,165,250,.55);stroke-width:1.5;}
+  .hub-ring.pulse{transform-origin:center;animation:pulse 3.4s ease-in-out infinite;}
+  @keyframes pulse{0%,100%{opacity:.5;}50%{opacity:1;}}
+
+  /* ---------------- avatar safe-zone guide (preview only) ---------------- */
+  #banner .safe{position:absolute;left:36px;bottom:-44px;width:168px;height:168px;border-radius:50%;
+    border:2px dashed rgba(255,120,120,.85);display:none;align-items:center;justify-content:center;
+    color:#ffcaca;font:600 11px 'JetBrains Mono',monospace;text-align:center;z-index:9;}
+  body.guides #banner .safe{display:flex;}
+
+  /* ---------------- toolbar ---------------- */
+  .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+  .toolbar button{font:500 13px 'Inter',sans-serif;color:#cfe0ff;background:rgba(59,130,246,.14);
+    border:1px solid rgba(96,165,250,.35);padding:9px 16px;border-radius:9px;cursor:pointer;transition:.15s}
+  .toolbar button:hover{background:rgba(59,130,246,.26);border-color:rgba(96,165,250,.6)}
+  .toolbar .meta{font:400 12px 'JetBrains Mono',monospace;color:#5f7493}
+  .note{font:400 12.5px 'Inter',sans-serif;color:#6c7f9e;max-width:760px;text-align:center;line-height:1.5}
+</style>
+</head>
+<body>
+
+  <div class="toolbar">
+    <button onclick="downloadPng()">⬇ Download PNG (1584×396)</button>
+    <button onclick="document.body.classList.toggle('guides')">Toggle photo safe-zone</button>
+    <span class="meta">native size · LinkedIn personal banner</span>
+  </div>
+
+  <div class="stage" id="stage">
+    <!-- ===================== BANNER ===================== -->
+    <div id="banner">
+      <div class="grid"></div>
+
+      <!-- node-graph motif (right) -->
+      <div class="graph">
+        <svg viewBox="0 0 760 396" preserveAspectRatio="xMidYMid slice">
+          <!-- edges -->
+          <path class="edge b" d="M430 198 L250 96"/>
+          <path class="edge"   d="M430 198 L286 320"/>
+          <path class="edge b" d="M430 198 L600 120"/>
+          <path class="edge"   d="M430 198 L640 286"/>
+          <path class="edge"   d="M430 198 L150 220"/>
+          <path class="edge"   d="M250 96 L150 220"/>
+          <path class="edge"   d="M600 120 L640 286"/>
+          <path class="edge b" d="M250 96 L470 70"/>
+          <path class="edge"   d="M286 320 L470 350"/>
+          <path class="edge"   d="M640 286 L470 350"/>
+          <path class="edge"   d="M600 120 L470 70"/>
+
+          <!-- animated signal beams -->
+          <path class="beam"    d="M150 220 L430 198 L600 120"/>
+          <path class="beam b2" d="M250 96 L430 198 L640 286"/>
+          <path class="beam b3" d="M286 320 L430 198 L470 70"/>
+
+          <!-- peripheral nodes -->
+          <g class="node-glow">
+            <circle class="node" cx="250" cy="96"  r="4.5"/>
+            <circle class="node" cx="286" cy="320" r="4.5"/>
+            <circle class="node" cx="600" cy="120" r="5"/>
+            <circle class="node" cx="640" cy="286" r="4.5"/>
+            <circle class="node" cx="150" cy="220" r="4"/>
+            <circle class="node" cx="470" cy="70"  r="4"/>
+            <circle class="node" cx="470" cy="350" r="4"/>
+          </g>
+
+          <!-- hub -->
+          <circle class="hub-ring pulse" cx="430" cy="198" r="26"/>
+          <circle class="hub-ring" cx="430" cy="198" r="16" style="opacity:.8"/>
+          <circle cx="430" cy="198" r="8" fill="#dbe9ff" class="node-glow"/>
+          <circle cx="430" cy="198" r="3.4" fill="#1e3a8a"/>
+        </svg>
+      </div>
+
+      <!-- brand block (left) -->
+      <div class="content">
+        <div class="eyebrow"><span class="dot"></span>AI&nbsp;OPERATING&nbsp;SYSTEMS<span class="rule"></span></div>
+
+        <div class="lockup">
+          <!-- logo mark: orbiting-node glyph -->
+          <svg class="mark" viewBox="0 0 64 64" fill="none">
+            <defs>
+              <linearGradient id="mg" x1="8" y1="6" x2="56" y2="58" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#93c5fd"/><stop offset="1" stop-color="#2563eb"/>
+              </linearGradient>
+            </defs>
+            <circle cx="32" cy="32" r="22" stroke="url(#mg)" stroke-width="2.5" opacity=".55"/>
+            <line x1="32" y1="32" x2="32" y2="10"  stroke="url(#mg)" stroke-width="2.2"/>
+            <line x1="32" y1="32" x2="51" y2="44"  stroke="url(#mg)" stroke-width="2.2"/>
+            <line x1="32" y1="32" x2="13" y2="44"  stroke="url(#mg)" stroke-width="2.2"/>
+            <circle cx="32" cy="10" r="5" fill="#bcd4ff"/>
+            <circle cx="51" cy="44" r="5" fill="#60a5fa"/>
+            <circle cx="13" cy="44" r="5" fill="#3b82f6"/>
+            <circle cx="32" cy="32" r="6.5" fill="#dbe9ff"/>
+          </svg>
+
+          <div class="wordmark">Boschly</div>
+        </div>
+
+        <div class="tagline">
+          Custom AI infrastructure that runs your operations —<br>
+          so your business gets <span class="accent">leaner</span>, <strong>not bigger</strong>.
+        </div>
+
+        <div class="foot">
+          <span class="bar"></span>
+          <span class="handle">boschly.ai&nbsp;&nbsp;·&nbsp;&nbsp;AI Operating Systems for growing companies</span>
+        </div>
+      </div>
+
+      <div class="vignette"></div>
+      <div class="safe">PROFILE<br>PHOTO</div>
+    </div>
+    <!-- =================== /BANNER =================== -->
+  </div>
+
+  <p class="note">Tip: click <strong>Toggle photo safe-zone</strong> to see where your LinkedIn profile photo will sit — nothing important lives under that circle.
+  Use <strong>Download PNG</strong> to export at the exact 1584×396 LinkedIn size.</p>
+
+<script>
+  // Scale the native banner down to fit the viewport for on-screen preview (export stays native size).
+  function fit(){
+    const stage=document.getElementById('stage');
+    const pad=56, avail=window.innerWidth-pad;
+    const s=Math.min(1, avail/1584);
+    stage.style.transform='scale('+s+')';
+    stage.style.height=(396*s+ (s<1?0:0))+'px';
+  }
+  window.addEventListener('resize',fit); fit();
+
+  function downloadPng(){
+    const hadGuides=document.body.classList.contains('guides');
+    document.body.classList.remove('guides'); // never export the safe-zone overlay
+    const node=document.getElementById('banner');
+    html2canvas(node,{width:1584,height:396,scale:1,backgroundColor:null,useCORS:true}).then(c=>{
+      const a=document.createElement('a');
+      a.download='boschly-linkedin-banner.png';
+      a.href=c.toDataURL('image/png');
+      a.click();
+      if(hadGuides) document.body.classList.add('guides');
+    });
+  }
+</script>
+</body>
+</html>

@@ -43,6 +43,9 @@ data/command/
 .vscode/
 .idea/
 
+# --- Google Takeout exports ---
+takeout-*/
+
 # --- Temp files ---
 *.tmp
 *.bak

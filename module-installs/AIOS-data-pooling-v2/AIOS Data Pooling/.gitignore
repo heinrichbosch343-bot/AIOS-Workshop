@@ -1,0 +1,8 @@
+# Secrets & local state — never commit or share these
+.env
+credentials.json
+token.json
+
+# Python bytecode
+__pycache__/
+*.pyc

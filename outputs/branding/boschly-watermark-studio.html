@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Boschly — Watermark Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --navy-0:#070b16; --navy-1:#0a1020; --navy-2:#0e1530;
+    --blue:#3b82f6; --blue-glow:#2563eb; --blue-300:#93c5fd; --blue-400:#60a5fa;
+    --line:rgba(255,255,255,0.10); --text:#eef2fb; --dim:#9fb0cc;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:#05070d;color:var(--text);
+    font-family:'Inter',system-ui,Arial,sans-serif;min-height:100vh;padding:34px 26px 80px}
+  h1{font-family:'Space Grotesk',sans-serif;font-weight:600;font-size:26px;letter-spacing:-.02em}
+  h1 .b{color:var(--blue-400)}
+  .sub{color:var(--dim);font-size:14px;margin-top:6px;max-width:760px;line-height:1.55}
+  h2{font-family:'JetBrains Mono',monospace;font-size:12.5px;font-weight:500;letter-spacing:.28em;
+     text-transform:uppercase;color:var(--blue-300);margin:42px 0 16px;display:flex;align-items:center;gap:12px}
+  h2::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line),transparent)}
+
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:20px}
+
+  /* card */
+  .card{border:1px solid var(--line);border-radius:16px;overflow:hidden;background:rgba(255,255,255,.015)}
+  .card .label{display:flex;justify-content:space-between;align-items:center;padding:11px 15px;
+    font:500 12px 'JetBrains Mono',monospace;color:#8ea3c4;border-bottom:1px solid var(--line);letter-spacing:.04em}
+  .card .label .tag{color:#5f7493;font-size:10.5px}
+  /* checkerboard = transparency preview */
+  .swatch{display:flex;align-items:center;justify-content:center;min-height:200px;padding:34px;
+    background-color:#11151f;
+    background-image:
+      linear-gradient(45deg,#161b27 25%,transparent 25%),
+      linear-gradient(-45deg,#161b27 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#161b27 75%),
+      linear-gradient(-45deg,transparent 75%,#161b27 75%);
+    background-size:22px 22px;background-position:0 0,0 11px,11px -11px,-11px 0}
+  .swatch.light{background-color:#e9edf4;
+    background-image:
+      linear-gradient(45deg,#d7dde8 25%,transparent 25%),
+      linear-gradient(-45deg,#d7dde8 25%,transparent 25%),
+      linear-gradient(45deg,transparent 75%,#d7dde8 75%),
+      linear-gradient(-45deg,transparent 75%,#d7dde8 75%)}
+  .card .act{display:flex;gap:8px;padding:11px 15px;border-top:1px solid var(--line)}
+  button{font:500 12.5px 'Inter',sans-serif;color:#cfe0ff;background:rgba(59,130,246,.14);
+    border:1px solid rgba(96,165,250,.35);padding:8px 14px;border-radius:9px;cursor:pointer;transition:.15s}
+  button:hover{background:rgba(59,130,246,.26);border-color:rgba(96,165,250,.6)}
+  button.alt{background:transparent;color:#9fb0cc}
+
+  /* ============ WATERMARK LOCKUPS ============ */
+  /* the actual exportable artwork lives inside .art (transparent, no bg) */
+  .art{display:inline-flex;align-items:center;gap:var(--gap,16px);line-height:1}
+  .art.stack{flex-direction:column;gap:14px}
+  .mark{flex:none;filter:drop-shadow(0 1px 10px rgba(59,130,246,.35))}
+  .wm{font-family:'Space Grotesk',sans-serif;font-weight:600;letter-spacing:-.025em;white-space:nowrap}
+  .wm.upper{font-weight:500;letter-spacing:.34em;text-transform:uppercase}
+  .dom{font-family:'JetBrains Mono',monospace;font-weight:400;letter-spacing:.18em;opacity:.7}
+
+  /* color treatments */
+  .t-light .wm,.t-light .dom{color:#ffffff}
+  .t-light .mark{filter:drop-shadow(0 1px 12px rgba(0,0,0,.45))}
+  .t-dark .wm,.t-dark .dom{color:#0a1020}
+  .t-dark .mark{filter:drop-shadow(0 1px 8px rgba(0,0,0,.18))}
+
+  .note{font:400 12.5px 'Inter';color:#6c7f9e;max-width:820px;line-height:1.6;margin-top:8px}
+
+  /* ============ TRY ON YOUR PHOTO ============ */
+  .studio{border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-top:14px}
+  .stagewrap{position:relative;background:#0a0d14;min-height:360px;display:flex;align-items:center;justify-content:center}
+  #photoStage{position:relative;max-width:100%;display:block}
+  #photoStage img{display:block;max-width:100%;max-height:74vh}
+  #overlay{position:absolute;pointer-events:none}
+  #overlay .art{filter:drop-shadow(0 1px 18px rgba(0,0,0,.5))}
+  .drop{padding:54px;text-align:center;color:#7f93b4;font-size:14px}
+  .drop b{color:#cfe0ff}
+  .controls{display:flex;flex-wrap:wrap;gap:18px;align-items:center;padding:16px 18px;border-top:1px solid var(--line);
+    font:500 12px 'JetBrains Mono',monospace;color:#8ea3c4}
+  .controls label{display:flex;flex-direction:column;gap:6px}
+  .controls select,.controls input[type=range]{accent-color:var(--blue);cursor:pointer}
+  .controls select{background:#0e1320;color:#cfe0ff;border:1px solid var(--line);border-radius:7px;padding:6px 8px;font:500 12px 'Inter'}
+  .corner-grid{display:grid;grid-template-columns:repeat(3,22px);grid-template-rows:repeat(3,22px);gap:4px}
+  .corner-grid div{border:1px solid var(--line);border-radius:4px;cursor:pointer}
+  .corner-grid div.on{background:var(--blue);border-color:var(--blue)}
+</style>
+</head>
+<body>
+
+  <h1>Boschly <span class="b">·</span> Watermark Studio</h1>
+  <p class="sub">Pick the lockup with the most authority, then download it as a <b>transparent PNG</b> (4× resolution, crisp at any size).
+  White version goes on dark / busy photos. Dark version goes on light photos. Scroll down to drop in your own image and preview it live before you commit.</p>
+
+  <!-- ============================ WHITE (for dark photos) ============================ -->
+  <h2>White — for dark &amp; busy photos</h2>
+  <div class="grid" id="gridWhite"></div>
+
+  <!-- ============================ DARK (for light photos) ============================ -->
+  <h2>Ink — for light photos</h2>
+  <div class="grid" id="gridDark"></div>
+
+  <!-- ============================ COLOR (the full logo) ============================ -->
+  <h2>Full color — the primary logo</h2>
+  <div class="grid" id="gridColor"></div>
+
+  <!-- ============================ TRY ON A PHOTO ============================ -->
+  <h2>Try it on your photo</h2>
+  <p class="note">Drop your image below. Choose the watermark, nudge the size, opacity and corner. When it looks right, hit <b>Download composited image</b>.
+  This is the quick path — for the headline phrase you also asked for, that's the next step.</p>
+  <div class="studio">
+    <div class="stagewrap" id="stagewrap">
+      <div class="drop" id="drop">
+        <b>Drop an image here</b> or click to choose &nbsp;·&nbsp; (try the office screenshot you generated)
+        <input type="file" id="file" accept="image/*" hidden />
+      </div>
+    </div>
+    <div class="controls" id="controls" style="display:none">
+      <label>Watermark
+        <select id="pick"></select>
+      </label>
+      <label>Size <input type="range" id="scale" min="6" max="40" value="16" /></label>
+      <label>Opacity <input type="range" id="op" min="20" max="100" value="92" /></label>
+      <label>Padding <input type="range" id="pad" min="2" max="10" value="5" /></label>
+      <label>Corner
+        <div class="corner-grid" id="corners">
+          <div data-c="tl"></div><div data-c="tc"></div><div data-c="tr"></div>
+          <div data-c="ml"></div><div data-c="mc"></div><div data-c="mr"></div>
+          <div data-c="bl"></div><div data-c="bc"></div><div data-c="br" class="on"></div>
+        </div>
+      </label>
+      <button onclick="downloadComposite()">⬇ Download composited image</button>
+      <button class="alt" onclick="resetPhoto()">Clear</button>
+    </div>
+  </div>
+
+<script>
+/* ---------- The Boschly mark: clean vector swirl (rebuilt from the screen glyph) ---------- */
+/* size = px, mode = 'light'(white) | 'dark'(ink) | 'color' */
+function markSVG(size, mode){
+  const id = 'g'+Math.random().toString(36).slice(2);
+  let blades, core, stroke='none';
+  if(mode==='color'){
+    blades = `url(#${id}c)`; core = `url(#${id}r)`;
+  } else if(mode==='light'){
+    blades = `url(#${id}w)`; core = '#ffffff';
+  } else { /* dark / ink */
+    blades = `url(#${id}k)`; core = '#0a1020';
+  }
+  // one comma-shaped blade, rotated 6x → vortex
+  const blade = "M60 60 C 64 41 81 33 99 41 C 90 51 76 55 60 60 Z";
+  let petals = '';
+  for(let i=0;i<6;i++){ petals += `<path d="${blade}" transform="rotate(${i*60} 60 60)"/>`; }
+  return `
+  <svg class="mark" width="${size}" height="${size}" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="${id}c" cx="50%" cy="50%" r="62%">
+        <stop offset="0%" stop-color="#ffffff"/><stop offset="26%" stop-color="#bfdbfe"/>
+        <stop offset="64%" stop-color="#3b82f6"/><stop offset="100%" stop-color="#1d4ed8"/>
+      </radialGradient>
+      <radialGradient id="${id}r" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="#ffffff"/><stop offset="55%" stop-color="#dbeafe"/><stop offset="100%" stop-color="#60a5fa"/>
+      </radialGradient>
+      <radialGradient id="${id}w" cx="50%" cy="50%" r="62%">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="1"/><stop offset="65%" stop-color="#ffffff" stop-opacity=".92"/>
+        <stop offset="100%" stop-color="#ffffff" stop-opacity=".62"/>
+      </radialGradient>
+      <radialGradient id="${id}k" cx="50%" cy="50%" r="62%">
+        <stop offset="0%" stop-color="#0a1020" stop-opacity="1"/><stop offset="65%" stop-color="#0e1530" stop-opacity=".92"/>
+        <stop offset="100%" stop-color="#1d4ed8" stop-opacity=".6"/>
+      </radialGradient>
+    </defs>
+    <g fill="${blades}" stroke="${stroke}">${petals}</g>
+    <circle cx="60" cy="60" r="9" fill="${core}"/>
+  </svg>`;
+}
+
+/* ---------- Lockup variants ---------- */
+/* returns the inner HTML of .art for a given variant + treatment(t-light/t-dark) + markMode */
+function lockup(variant, fontPx, markMode){
+  const m = markSVG(Math.round(fontPx*1.05), markMode);
+  if(variant==='wordmark')      return `<span class="wm" style="font-size:${fontPx}px">Boschly</span>`;
+  if(variant==='horizontal')    return `${m}<span class="wm" style="font-size:${fontPx}px">Boschly</span>`;
+  if(variant==='horizontal-dom')return `${m}<span class="wm" style="font-size:${fontPx}px">Boschly</span><span class="dom" style="font-size:${fontPx*0.42}px;margin-left:${fontPx*0.5}px">boschly.ai</span>`;
+  if(variant==='stack')         return `${markSVG(Math.round(fontPx*1.7),markMode)}<span class="wm upper" style="font-size:${fontPx*0.74}px">Boschly</span>`;
+  if(variant==='mark')          return `${markSVG(Math.round(fontPx*2.1),markMode)}`;
+  return '';
+}
+
+const VARIANTS = [
+  {key:'horizontal',     name:'Horizontal lockup', tag:'mark + name', stack:false},
+  {key:'wordmark',       name:'Wordmark only',     tag:'name',        stack:false},
+  {key:'stack',          name:'Stacked badge',     tag:'mark / NAME', stack:true},
+  {key:'horizontal-dom', name:'Lockup + domain',   tag:'mark + name + url', stack:false},
+];
+
+function buildGrid(elId, treatment, markMode, swatchLight){
+  const host = document.getElementById(elId);
+  VARIANTS.forEach((v,i)=>{
+    const fontPx = v.key==='stack'?40:34;
+    const card = document.createElement('div'); card.className='card';
+    const artId = elId+'-'+v.key;
+    card.innerHTML = `
+      <div class="label">${v.name}<span class="tag">${v.tag}</span></div>
+      <div class="swatch ${swatchLight?'light':''}">
+        <div class="art ${v.stack?'stack':''} ${treatment}" id="${artId}">${lockup(v.key,fontPx,markMode)}</div>
+      </div>
+      <div class="act">
+        <button onclick="dl('${artId}','boschly-${markMode}-${v.key}.png')">⬇ Transparent PNG</button>
+      </div>`;
+    host.appendChild(card);
+  });
+}
+
+buildGrid('gridWhite','t-light','light',false);
+buildGrid('gridDark','t-dark','dark',true);
+buildGrid('gridColor','t-light','color',false);
+
+/* ---------- Download a single artwork as transparent PNG (4x) ---------- */
+function dl(artId, filename){
+  const node = document.getElementById(artId);
+  html2canvas(node,{backgroundColor:null,scale:4,logging:false}).then(c=>{
+    const a=document.createElement('a'); a.download=filename; a.href=c.toDataURL('image/png'); a.click();
+  });
+}
+
+/* ====================== TRY ON A PHOTO ====================== */
+let photoEl=null;
+const drop=document.getElementById('drop'), fileInput=document.getElementById('file'),
+      stagewrap=document.getElementById('stagewrap'), controls=document.getElementById('controls');
+
+drop.addEventListener('click',()=>fileInput.click());
+['dragover'].forEach(e=>stagewrap.addEventListener(e,ev=>{ev.preventDefault();}));
+stagewrap.addEventListener('drop',ev=>{ev.preventDefault(); if(ev.dataTransfer.files[0]) loadPhoto(ev.dataTransfer.files[0]);});
+fileInput.addEventListener('change',e=>{ if(e.target.files[0]) loadPhoto(e.target.files[0]); });
+
+function loadPhoto(file){
+  const r=new FileReader();
+  r.onload=()=>{
+    stagewrap.innerHTML='<div id="photoStage"><img id="pImg"><div id="overlay"></div></div>';
+    document.getElementById('pImg').src=r.result;
+    document.getElementById('pImg').onload=renderOverlay;
+    controls.style.display='flex';
+    populatePicker();
+  };
+  r.readAsDataURL(file);
+}
+
+// picker options: all variants in white + ink
+function populatePicker(){
+  const pick=document.getElementById('pick');
+  pick.innerHTML='';
+  [['light','White'],['dark','Ink'],['color','Color']].forEach(([mode,mlabel])=>{
+    VARIANTS.forEach(v=>{
+      const o=document.createElement('option');
+      o.value=mode+'|'+v.key; o.textContent=`${mlabel} · ${v.name}`;
+      pick.appendChild(o);
+    });
+  });
+  pick.value='light|horizontal';
+  pick.onchange=renderOverlay;
+}
+
+let corner='br';
+document.getElementById('corners').addEventListener('click',e=>{
+  if(!e.target.dataset.c) return;
+  document.querySelectorAll('#corners div').forEach(d=>d.classList.remove('on'));
+  e.target.classList.add('on'); corner=e.target.dataset.c; renderOverlay();
+});
+['scale','op','pad'].forEach(id=>document.getElementById(id).addEventListener('input',renderOverlay));
+
+function renderOverlay(){
+  const ov=document.getElementById('overlay'); if(!ov) return;
+  const img=document.getElementById('pImg');
+  const W=img.clientWidth, H=img.clientHeight;
+  const [mode,variant]=document.getElementById('pick').value.split('|');
+  const sizePct=+document.getElementById('scale').value;     // % of width
+  const op=+document.getElementById('op').value/100;
+  const padPct=+document.getElementById('pad').value;
+  const fontPx = Math.max(10, W*sizePct/100 * (variant==='wordmark'?0.9:0.5));
+  const treatment = mode==='dark'?'t-dark':'t-light';
+  const isStack = variant==='stack';
+  ov.style.opacity=op;
+  ov.innerHTML=`<div class="art ${isStack?'stack':''} ${treatment}">${lockup(variant,fontPx,mode)}</div>`;
+  // position
+  const padX=W*padPct/100, padY=H*padPct/100;
+  ov.style.left=ov.style.right=ov.style.top=ov.style.bottom='auto';
+  const c=corner;
+  if(c[0]==='t'){ov.style.top=padY+'px';} else if(c[0]==='b'){ov.style.bottom=padY+'px';}
+  else {ov.style.top='50%'; ov.style.transform='translateY(-50%)';}
+  if(c[1]==='l'){ov.style.left=padX+'px';} else if(c[1]==='r'){ov.style.right=padX+'px';}
+  else {ov.style.left='50%'; ov.style.transform=(c[0]==='m'?'translate(-50%,-50%)':'translateX(-50%)');}
+}
+
+function downloadComposite(){
+  const stage=document.getElementById('photoStage'); if(!stage){alert('Load an image first');return;}
+  html2canvas(stage,{backgroundColor:null,scale:2,useCORS:true,logging:false}).then(c=>{
+    const a=document.createElement('a'); a.download='boschly-watermarked.png'; a.href=c.toDataURL('image/png'); a.click();
+  });
+}
+function resetPhoto(){
+  stagewrap.innerHTML='<div class="drop" id="drop"><b>Drop an image here</b> or click to choose</div>';
+  controls.style.display='none';
+  document.getElementById('drop').addEventListener('click',()=>fileInput.click());
+}
+window.addEventListener('resize',renderOverlay);
+</script>
+</body>
+</html>

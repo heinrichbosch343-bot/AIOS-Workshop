@@ -211,7 +211,7 @@ def get_files_in_folder(folder_id: str):
         return []
 
 
-def fetch_texts(files: list, max_chars_per_file: int = 6000) -> list[dict]:
+def fetch_texts(files: list, max_chars_per_file: int = 2000) -> list[dict]:
     """Extract text from a list of Drive file dicts."""
     from drive_client import extract_text
     results = []
@@ -308,7 +308,7 @@ if submitted:
     else:
         # Determine which files to read
         if file_choice == "All files in folder":
-            target_files = files_in_folder[:10]  # cap at 10 for token safety
+            target_files = files_in_folder[:100]
         else:
             target_files = [f for f in files_in_folder if f["name"] == file_choice]
 

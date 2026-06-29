@@ -1,0 +1,31 @@
+Meeting: Osun Consulting Group — Follow-up: RFP module demo
+Date: 25 June 2026
+Participants: Heinrich (BoschAI), Connie (Osun Consulting Group)
+
+Heinrich: Connie, I built the RFP draft generator against the two proposals you sent. Let me show you. I'll paste in a tender brief, and watch what it produces.
+
+Connie: Okay... and that's it? It's already laid out the whole response structure.
+
+Heinrich: Right. It read the brief, pulled your approved governance language for the relevant sections, and drafted the methodology and team sections from your past wins. It's a first draft, not a final — but you're editing instead of starting from nothing.
+
+Connie: This is genuinely impressive. The structure is exactly how we do it. The methodology section is about eighty percent there.
+
+Heinrich: What's the missing twenty?
+
+Connie: The tone. It's a little too formal in places. We write more directly than this — we sound like advisors, not a textbook. And it used "utilise" everywhere, which I hate.
+
+Heinrich: That's an easy fix. I can add a tone setting that learns your voice from the approved proposals, so the draft comes out sounding like Osun, not like a template. The "utilise" type words I can ban outright.
+
+Connie: If you can get the tone right, this is something we'd use on every single tender.
+
+Heinrich: I'll add the tone controls and the banned-words list this week. Can you approve the methodology wording by the 27th so I lock the template?
+
+Connie: Yes, I'll go through it tomorrow and send notes by the 27th.
+
+Heinrich: Perfect. Once tone's in, the next step is wiring this into the annual reports too, since they share a lot of the same language.
+
+Connie: One thing at a time, but yes — if the RFP module lands, the annual reports are the obvious next win.
+
+Heinrich: Agreed. I'll have the tone update ready for you to test early next week.
+
+Connie: Excellent work, Heinrich. This is exactly what I hoped for.

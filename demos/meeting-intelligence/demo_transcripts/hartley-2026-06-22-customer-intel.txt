@@ -1,0 +1,27 @@
+Meeting: Hartley Retail Group — Customer intelligence intro
+Date: 22 June 2026
+Participants: Heinrich (BoschAI), Naledi (Hartley Retail Group, Marketing Director)
+
+Heinrich: Naledi, thanks for the introduction from your team. You said you're flying blind on customers — what do you mean by that?
+
+Naledi: We have eleven stores and an online shop, and the customer data is everywhere. The point-of-sale system has one view, the loyalty programme has another, the website has a third. Nobody can answer a simple question like "who are our best customers and what do they actually buy."
+
+Heinrich: So the data exists, it's just scattered across systems that don't talk to each other.
+
+Naledi: Exactly. My team makes campaign decisions on instinct because pulling a real answer takes our analyst two weeks, and by then the moment's gone. We're probably spending marketing budget on the wrong people.
+
+Heinrich: That's the core of it — the data's there, but it's not pooled, so it can't be questioned. The customer intelligence layer brings those sources into one place and lets you ask plain-English questions: who's at risk of churning, which products drive repeat visits, what a customer segment is worth. You ask, you get an answer in seconds, not a two-week analyst job.
+
+Naledi: That would change how we plan completely. Could it tell us which customers haven't shopped in ninety days?
+
+Heinrich: That's a basic one, yes — and you could trigger a campaign off it automatically. The first step is mapping what data lives where, so we know what we're pooling.
+
+Naledi: What do you need to start?
+
+Heinrich: Access to an export from your POS and your loyalty system — even a sample. I'll draft a data map showing how the sources connect and what questions become answerable once they're joined.
+
+Naledi: I'll arrange access with our IT lead this week.
+
+Heinrich: Perfect. Let's regroup on the 29th and I'll show you the data map and a few example questions.
+
+Naledi: Great. This is the first conversation that's made the mess sound solvable.

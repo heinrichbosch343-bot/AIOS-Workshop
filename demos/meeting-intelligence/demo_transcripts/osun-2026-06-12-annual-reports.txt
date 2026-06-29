@@ -1,0 +1,31 @@
+Meeting: Osun Consulting Group — Annual report automation kickoff
+Date: 12 June 2026
+Participants: Heinrich (BoschAI), Connie (Osun Consulting Group)
+
+Heinrich: Thanks for the time, Connie. I wanted to dig into the annual reports and the RFP work, because that's where you said most of the team's time goes.
+
+Connie: It really is. Every annual report is six to eight weeks of work. We pull data from five or six different documents, rewrite the same governance sections we write every year, and then three people proofread it. By the time it's done everyone's exhausted.
+
+Heinrich: And the RFPs?
+
+Connie: Worse, in a way, because they're unpredictable. A tender lands, we've got ten days, and we drop everything. We're copying chunks from old proposals, half of which are out of date. We've lost bids purely because we ran out of time to make them sharp.
+
+Heinrich: So two problems: the annual reports are slow and repetitive, and the RFPs are urgent and chaotic. Both are really document assembly with a layer of judgement on top.
+
+Connie: Exactly. The judgement is ours to keep. The assembly is what's killing us.
+
+Heinrich: That's the part we automate. The idea is a governance document system: it holds your approved language, your past reports, your boilerplate, and when a new report or RFP starts, it drafts the first version pulling from the right sources, in your house style. You edit and approve, you don't write from a blank page.
+
+Connie: If it could even get us to a solid first draft, that changes everything.
+
+Heinrich: That's the target. First draft in an afternoon, not three weeks.
+
+Connie: What do you need from me?
+
+Heinrich: Send me your three most recent annual reports and two RFP responses you were proud of. I'll use those to learn your structure and tone. I'll scope the RFP module specifically since that's the urgent one.
+
+Connie: I'll get those to you this week.
+
+Heinrich: Perfect. Let's reconnect on the 19th and I'll walk you through the approach.
+
+Connie: Booked. Thank you, Heinrich — this is the bottleneck I've wanted gone for years.

@@ -1,0 +1,31 @@
+Meeting: Cape Agri Cooperative — Demand forecasting scoping
+Date: 18 June 2026
+Participants: Heinrich (BoschAI), Pieter (Cape Agri Cooperative, Procurement Lead)
+
+Heinrich: Pieter, you mentioned stock planning is where the cooperative bleeds money. Walk me through it.
+
+Pieter: It's guesswork, basically. We order seed, fertiliser, feed — big volumes — based on what we ordered last year plus a gut feel. When we over-order, it sits in the warehouse tying up cash, and some of it expires. When we under-order, members can't get what they need and they buy elsewhere. Both hurt.
+
+Heinrich: Do you have a sense of the number?
+
+Pieter: Conservatively, we're losing a few hundred thousand rand a year between waste and lost sales. Probably more. We've just never measured it properly.
+
+Heinrich: And the data — do you have history of what was sold, when?
+
+Pieter: Years of it. Sales by product, by month, going back well over two years. It's all in the system, we just don't do anything clever with it.
+
+Heinrich: That's actually the good news. With that history, we can forecast demand properly instead of guessing. There's a forecasting model we use that takes your sales history and projects the next few months per product, and it flags when something's trending up or down before it bites you.
+
+Pieter: So it would tell me, going into a season, roughly how much to order?
+
+Heinrich: Yes — and it improves as it sees more. We'd start with a proof of concept on a handful of your highest-value products, show you the forecast against what actually happened, and you judge if it's accurate enough to trust.
+
+Pieter: I'd want to see that before committing. If it's close, this pays for itself in one season.
+
+Heinrich: Agreed. Can you export two years of sales history for your top products? I'll run the forecast and we'll compare it to reality so you can see the accuracy.
+
+Pieter: I'll pull that this week.
+
+Heinrich: Then let's review the results on the 30th.
+
+Pieter: Done. If this works, I want to talk about rolling it across the whole catalogue.

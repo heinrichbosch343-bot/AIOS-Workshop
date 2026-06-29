@@ -1,20 +1,35 @@
 """
-Pre-warm the demo: read every sample invoice once and cache the result to disk.
+Pre-warm the demo: read every invoice once and cache the result to disk.
 
-Run this ONCE before recording (takes ~1-2 minutes for the four samples):
+Run this ONCE before recording. By default it warms BOTH the 4 samples/ and the
+100 demo-invoices-100/ (about 12-18 min, ~600 credits on FAST mode):
     python warm_cache.py
 
+Or point it at one specific folder:
+    python warm_cache.py samples
+    python warm_cache.py demo-invoices-100
+
 After this, launching the dashboard and dropping the same invoices returns instantly —
-no waiting on camera. Add new sample PDFs to samples/ and re-run to warm them too.
+no waiting on camera.
 """
+import sys
 import time
 from pathlib import Path
 
 import invoice_extract as ix
 
-samples = sorted((Path(__file__).resolve().parent / "samples").glob("*.pdf"))
+HERE = Path(__file__).resolve().parent
+if len(sys.argv) > 1:
+    folders = [HERE / sys.argv[1]]
+else:
+    folders = [HERE / "samples", HERE / "demo-invoices-100"]
+
+samples = []
+for folder in folders:
+    if folder.exists():
+        samples.extend(sorted(folder.glob("*.pdf")))
 if not samples:
-    raise SystemExit("No PDFs in samples/. Run generate_samples.py first.")
+    raise SystemExit(f"No PDFs found in {[f.name for f in folders]}. Run generate_samples.py / generate_bulk.py first.")
 
 print("Pre-warming reader...")
 agent = ix.get_agent()

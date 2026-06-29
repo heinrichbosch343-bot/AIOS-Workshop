@@ -1,0 +1,27 @@
+Meeting: Sandstone Medical Group — HR compliance automation
+Date: 20 June 2026
+Participants: Heinrich (BoschAI), Anita (Sandstone Medical Group, Head of HR)
+
+Heinrich: Anita, you said compliance keeps you up at night. Tell me what that actually looks like day to day.
+
+Anita: We're a medical group — four practices, just over a hundred clinical staff. Every one of them has certifications, licences, indemnity cover, mandatory training, that all expire on different dates. If even one lapses and we don't catch it, that's a person legally not allowed to treat patients, and it's a regulatory finding against us.
+
+Heinrich: And how do you track all that today?
+
+Anita: A spreadsheet. One enormous spreadsheet that my team updates by hand. We chase people by email when we remember to. Last audit we found eleven staff with something expired that nobody had flagged. It was a scramble.
+
+Heinrich: So the risk is real and the tracking is manual and reactive. The expiries are predictable — you know the date the moment the certificate is issued — but nothing is watching them for you.
+
+Anita: That's exactly it. It's not that the information is missing, it's that no one's job is to watch a hundred rolling deadlines.
+
+Heinrich: That's what we automate. A compliance system holds every staff member's credentials and expiry dates, watches them continuously, and flags anything coming due — say sixty, thirty, and seven days out — and chases the person automatically. You see a live dashboard of who's compliant and who's at risk, instead of finding out at audit.
+
+Anita: If I could open a screen and see "everyone green except these three, due next month," that would transform my week.
+
+Heinrich: That's the goal. To build it I need an export of your current staff registry with the credential types and dates, even messy. I'll map out the compliance requirements per role so we know what to track.
+
+Anita: I can get you the registry export this week. The role requirements I can confirm too.
+
+Heinrich: Perfect. Let's review the compliance map on the 27th.
+
+Anita: Agreed. Honestly, removing this risk is worth more to me than anything else on my list.

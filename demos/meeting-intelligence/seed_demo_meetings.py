@@ -24,11 +24,12 @@ TDIR = HERE / "demo_transcripts"
 # Spread across June 2026, multiple clients, two Osun meetings (so date-within-client
 # questions work), and Hartley as a client not in the seed roster (added on log).
 MEETINGS = [
-    {"file": "osun-2026-06-12-annual-reports.txt",   "client": "Osun Consulting Group", "date": "2026-06-12", "title": "Annual report automation — kickoff"},
-    {"file": "lourens-2026-06-16-discovery.txt",      "client": "Lourens Delport",       "date": "2026-06-16", "title": "Discovery call"},
-    {"file": "cape-agri-2026-06-18-forecasting.txt",  "client": "Cape Agri Cooperative", "date": "2026-06-18", "title": "Demand forecasting — scoping"},
-    {"file": "hartley-2026-06-22-customer-intel.txt", "client": "Hartley Retail Group",  "date": "2026-06-22", "title": "Customer intelligence — intro"},
-    {"file": "osun-2026-06-25-rfp-demo.txt",          "client": "Osun Consulting Group", "date": "2026-06-25", "title": "Follow-up — RFP module demo"},
+    {"file": "osun-2026-06-12-annual-reports.txt",      "client": "Osun Consulting Group", "date": "2026-06-12", "title": "Annual report automation — kickoff"},
+    {"file": "cape-agri-2026-06-18-forecasting.txt",     "client": "Cape Agri Cooperative", "date": "2026-06-18", "title": "Demand forecasting — scoping"},
+    {"file": "sandstone-2026-06-20-hr-compliance.txt",   "client": "Sandstone Medical Group", "date": "2026-06-20", "title": "HR compliance automation"},
+    {"file": "hartley-2026-06-22-customer-intel.txt",    "client": "Hartley Retail Group",  "date": "2026-06-22", "title": "Customer intelligence — intro"},
+    {"file": "brightpath-2026-06-23-fleet-intelligence.txt", "client": "BrightPath Logistics", "date": "2026-06-23", "title": "Fleet intelligence — scoping"},
+    {"file": "osun-2026-06-25-rfp-demo.txt",            "client": "Osun Consulting Group", "date": "2026-06-25", "title": "Follow-up — RFP module demo"},
 ]
 
 

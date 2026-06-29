@@ -23,7 +23,7 @@ DB_PATH = WORKSPACE_ROOT / "data" / "meeting_demo.db"
 
 # Pre-seeded so the client picker looks like a real CRM on camera, even on a fresh DB.
 # These are Heinrich's actual pipeline names — feel free to add more by typing in the UI.
-SEED_CLIENTS = ["Osun Consulting Group", "Lourens Delport", "Cape Agri Cooperative"]
+SEED_CLIENTS = ["Osun Consulting Group", "Cape Agri Cooperative", "Sandstone Medical Group", "BrightPath Logistics"]
 
 # Budget for the text handed to Claude when answering (matches the backend's cap).
 MAX_CORPUS_CHARS = 120_000

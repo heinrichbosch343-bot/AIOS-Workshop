@@ -1,0 +1,27 @@
+Meeting: BrightPath Logistics — Fleet intelligence scoping
+Date: 23 June 2026
+Participants: Heinrich (BoschAI), Themba (BrightPath Logistics, Operations Manager)
+
+Heinrich: Themba, you run the fleet. Where's the money leaking?
+
+Themba: Everywhere and nowhere I can point to, which is the problem. We run sixty-odd vehicles. Fuel, maintenance, tyres, driver hours — all of it lives in different spreadsheets and a couple of WhatsApp groups. I know our running costs are climbing but I can't tell you which trucks or why.
+
+Heinrich: So you've got the data, it's just scattered and never pulled together.
+
+Themba: Right. Each depot keeps its own logs. When a truck breaks down, it's a surprise every time, even though half the time the signs were there — rising fuel use, a service that got skipped. We just don't see it until it's parked on the side of the road costing us a delivery.
+
+Heinrich: That's the expensive part — reactive maintenance and blind spend. The pattern is usually sitting in the data nobody's reading. If we pool the fuel, maintenance, and route logs into one place, two things become possible: you see cost per vehicle clearly, and you catch the early warning signs — a truck whose fuel consumption is creeping up, or one overdue a service — before it fails.
+
+Themba: Could it actually predict a breakdown?
+
+Heinrich: Not magic, but yes — flag the trucks behaving like ones that failed before. Even catching a third of them early pays for itself in avoided downtime. We'd start with a proof of concept on maintenance prediction using your history, and show you the trucks it would have flagged.
+
+Themba: That I'd want to see. If it had warned me about the two we lost last month, you'd have my attention.
+
+Heinrich: Then let's test exactly that. Can you export the last six months of fleet logs — fuel, maintenance, and odometer readings?
+
+Themba: I'll have to pull it from three depots, but I can get it to you.
+
+Heinrich: Great. I'll run the maintenance-prediction POC against it and we'll review what it catches.
+
+Themba: Let's set that for the 1st of July. If the numbers hold up, I want this across the whole fleet before peak season.

@@ -9,11 +9,12 @@ Tab 2 — Ask the AI:     ask anything across logged meetings (all clients, or f
 Same visual language as the Drive (8502) and Invoice (8503) demos. Runs on port 8504.
 """
 import hashlib
-from datetime import date
+from datetime import date, datetime
 
 import streamlit as st
 
 import ask
+import pdf_export
 import store
 import transcribe as tx
 
@@ -59,12 +60,12 @@ html, body, [class*="css"] { font-family: 'Space Grotesk', sans-serif; backgroun
 .stFileUploader > div { background: #030712 !important; border: 1px dashed #1d4ed8 !important; border-radius: 4px !important; }
 .stTextInput > div > div > input, .stTextArea textarea { background: #030712 !important; border: 1px solid #0f2050 !important; color: #c8d8f8 !important; }
 
-.stButton > button {
+.stButton > button, .stDownloadButton > button {
     background: linear-gradient(135deg, #1d4ed8 0%, #4f46e5 100%) !important; border: none !important; border-radius: 3px !important;
     color: #e0eaff !important; font-family: 'JetBrains Mono', monospace !important; font-size: 11px !important; letter-spacing: 4px !important;
     text-transform: uppercase !important; padding: 13px 0 !important; width: 100%; box-shadow: 0 0 32px rgba(29,78,216,0.25);
 }
-.stButton > button:hover { box-shadow: 0 0 48px rgba(29,78,216,0.4) !important; }
+.stButton > button:hover, .stDownloadButton > button:hover { box-shadow: 0 0 48px rgba(29,78,216,0.4) !important; }
 .stButton > button:disabled { opacity: 0.25 !important; box-shadow: none !important; }
 
 .metrics { display: flex; gap: 12px; margin: 24px 0 20px; }
@@ -257,13 +258,41 @@ with tab_ask:
         except Exception as e:
             st.error(f"Couldn't answer that: {e}")
             st.stop()
+        # Persist so the PDF download (which reruns the script) doesn't re-query Claude.
+        st.session_state["last_answer"] = {
+            "question": question,
+            "answer": res["answer"],
+            "scope": res["scope"],
+            "meetings_searched": res["meetings_searched"],
+        }
+
+    last = st.session_state.get("last_answer")
+    if last:
         st.markdown(
             f'<div class="tag" style="margin-top:6px">answer &nbsp;·&nbsp; '
-            f'searched {res["meetings_searched"]} meeting(s) &nbsp;·&nbsp; {esc(str(res["scope"]))}</div>',
+            f'searched {last["meetings_searched"]} meeting(s) &nbsp;·&nbsp; {esc(str(last["scope"]))}</div>',
             unsafe_allow_html=True,
         )
         with st.container(border=True):
-            st.markdown(res["answer"])
+            st.markdown(last["answer"])
+
+        try:
+            pdf_bytes = pdf_export.build_answer_pdf(
+                question=last["question"],
+                answer=last["answer"],
+                scope=last["scope"],
+                meetings_searched=last["meetings_searched"],
+                generated_on=datetime.now().strftime("%d %b %Y, %H:%M"),
+            )
+            st.download_button(
+                "DOWNLOAD PDF",
+                data=pdf_bytes,
+                file_name=f"meeting-review-{datetime.now().strftime('%Y%m%d')}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        except Exception as e:
+            st.caption(f"PDF export unavailable: {e}")
 
     # Dated list of what's stored — proves the "everything is dated" promise.
     meetings = store.get_meetings(client_filter)

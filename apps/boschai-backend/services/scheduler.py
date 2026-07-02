@@ -54,9 +54,13 @@ def start_scheduler():
     sch.add_job(_safe(lambda: asyncio.run(autodraft.auto_draft_replies())),
                 CronTrigger(hour=5, minute=50, timezone=TZ),
                 id="auto_draft", replace_existing=True, misfire_grace_time=1800)
-    sch.add_job(_safe(daily_brief.send_daily_brief),
-                CronTrigger(hour=6, minute=0, timezone=TZ),
-                id="daily_brief", replace_existing=True, misfire_grace_time=3600)
+    # Morning brief is opt-in via DAILY_BRIEF_ENABLED; /dailybrief in Telegram
+    # still triggers one on demand while the scheduled send is off.
+    from config import DAILY_BRIEF_ENABLED
+    if DAILY_BRIEF_ENABLED:
+        sch.add_job(_safe(daily_brief.send_daily_brief),
+                    CronTrigger(hour=6, minute=0, timezone=TZ),
+                    id="daily_brief", replace_existing=True, misfire_grace_time=3600)
     sch.add_job(_safe(signoff_watcher.check_signoffs),
                 IntervalTrigger(minutes=30),
                 id="signoff_watcher", replace_existing=True, misfire_grace_time=600)
@@ -104,7 +108,8 @@ def start_scheduler():
 
     sch.start()
     _scheduler = sch
-    print("[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, daily brief 06:00, pipeline nudges 08:30, follow-ups 08/11/14:00 SAST, sign-off watcher every 30 min", flush=True)
+    brief_status = "daily brief 06:00" if DAILY_BRIEF_ENABLED else "daily brief PAUSED"
+    print(f"[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, {brief_status}, pipeline nudges 08:30, follow-ups 08/11/14:00 SAST, sign-off watcher every 30 min", flush=True)
 
 
 def stop_scheduler():

@@ -84,3 +84,8 @@ LINKEDIN_DRAFTING_MODEL = os.environ.get("LINKEDIN_DRAFTING_MODEL", "claude-sonn
 # Off by default — no API calls until Heinrich flips this on.
 LINKEDIN_SCHEDULER_ENABLED = os.environ.get("LINKEDIN_SCHEDULER_ENABLED", "0") == "1"
 # === BoschAI: LinkedIn (lane A) — END ===
+
+# DAILY_BRIEF_ENABLED: set to "1" to send the 06:00 SAST morning brief.
+# Paused at Heinrich's request 2026-07-02; the /dailybrief Telegram command
+# still fires a brief on demand while this is off.
+DAILY_BRIEF_ENABLED = os.environ.get("DAILY_BRIEF_ENABLED", "0") == "1"

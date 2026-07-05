@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Johan — Meridian Manufacturing</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <canvas id="orb"></canvas>
+
+  <main id="stage">
+    <div id="orb-column">
+      <div id="orb-space" role="button" aria-label="Johan orb — hold to talk"></div>
+
+      <p id="status">Hold the orb — or hold <kbd>space</kbd> — and ask Johan a question</p>
+
+      <section id="exchange" class="hidden">
+        <p id="question" class="question"></p>
+        <p id="answer" class="answer"></p>
+      </section>
+
+      <section id="debug-panel" class="hidden">
+        <input id="debug-text" type="text" placeholder="Type a question (debug mode)" autocomplete="off">
+        <button id="debug-send">Send</button>
+      </section>
+    </div>
+
+    <aside id="card-panel" class="hidden">
+      <h3 id="card-title"></h3>
+      <div id="card-body"></div>
+    </aside>
+
+    <footer>Meridian Manufacturing (Pty) Ltd · BoschAI Johan demo · all data fictional</footer>
+  </main>
+
+  <script src="/static/vendor/chart.umd.js"></script>
+  <script src="/static/cards.js"></script>
+  <script type="module" src="/static/app.js"></script>
+</body>
+</html>

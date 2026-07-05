@@ -8,6 +8,41 @@
 
 ---
 
+## 2026-07-05
+
+### Johan Orb v2 — Fullscreen Plasma Render
+- Diagnosed the "boxed-in" look: the orb's glow was clipping at the edges of its 480px square canvas. Canvas is now fullscreen behind the UI (z-index 0, pointer-events none); the scene anchors itself to an invisible circular `#orb-space` hold-target every frame, so the orb sits in the layout but its glow/particles bleed across the whole screen
+- Core rebuilt as a plasma shader: simplex-noise displaced sphere (living surface), fbm volumetric energy wisps in the fragment shader, semi-transparent everywhere (never a solid ball), plus a glassy fresnel shell; solid white "heart" mesh replaced with a soft glow sprite
+- 2D fallback updated for the non-square fullscreen canvas
+
+### Johan Visual Detail Pass — Deep Cards, Karaoke Captions, Orb Transitions
+- Cards now carry EVERY detail while Johan speaks only headlines: new `list` card type (meetings/documents → date, attendees, each decision/discussion/action as labelled items), `facts` chips on any card, tables up to 12 rows; brain `MAX_TOKENS` 1000→2000
+- Karaoke captions: the spoken answer appears word-by-word in sync with the audio, current word glowing — no more pile of text
+- De-boxed the card panel: floats on a soft radial pool of light that fades into the dark space (no border/box), staggered element reveal, Chart.js bars/points animate in sequence
+- Orb transition flare: bright core burst that decays ~0.6s on every state change (biggest when the answer starts)
+- Fixed brain JSON parsing: scan for the JSON object anywhere in the reply so stray prose can never make Johan read raw JSON aloud
+- Voice: swapped to **Marcel — South African** (middle-aged Afrikaans man, voice ID via ElevenLabs web app since the key is TTS-only scoped); verified live end-to-end, Hendrik Vorster kept in comments as the previous pick
+
+### Johan Upgrade — SA Persona, Visual Cards, 3D Energy Orb (Jarvis Phase 2)
+- Upgraded `demos/jarvis/` (port 8505, folder name unchanged) into **Johan**: Afrikaans-flavoured persona, 1–2 sentence punchy answers, headline number first
+- Visual card engine: the brain now returns strict JSON `{say, card}` in one Claude pass — bar/line charts (vendored Chart.js), tables with stuck-deal highlight, and stat tiles slide in beside the orb (`static/cards.js`)
+- 3D energy orb: Three.js WebGL orb (`static/orb3d.js`) — fresnel energy core, 2,500-particle swirl field, layered additive glow (fake bloom, no post-processing chain), floating drift, four reactive states; FPS watchdog + `?lowfx=1` fallback; old 2D orb kept as WebGL-unavailable fallback (`orb2d.js`)
+- ElevenLabs TTS wired in `voice.py` (Flash v2.5 at 1.1× speed) with automatic Deepgram Aura fallback so the demo can never die on camera; Deepgram stays for STT
+- Johan's voice: **Hendrik Vorster** (SA, upbeat) live via ElevenLabs Flash v2.5 @ 1.1× (Heinrich upgraded to Starter — free plan 402-blocks library voices over the API); Deepgram fallback verified as the on-camera safety net; full voice-to-voice round trip now **~6s** (Phase 1 was 10–16s)
+- Validated end-to-end: all four card types + null-card conversation verified via `/api/ask`; vendored libs serve locally (offline-capable)
+- Plan: `plans/2026-07-05-johan-upgrade.md` · Concept: `plans/explore-2026-07-05-johan-upgrade.md`
+
+### Jarvis Voice Orb Demo — Phase 1 (The Talking Loop)
+- Built `demos/jarvis/` (port 8505): hold the orb or spacebar, ask a business question out loud, hear a spoken answer — mic → Deepgram Nova-3 STT → Claude Sonnet 5 with a read-only SQL tool → Deepgram Aura-2 TTS ("Orion" voice)
+- Seeded fictional client company **Meridian Manufacturing (Pty) Ltd** into `data/jarvis_demo.db`: 8 quarters of financials, 10-deal pipeline (R14.7M open, one deliberately stuck Transnet deal), 12 meeting transcripts, 10 documents — all cross-referenced so the six on-camera questions land
+- SQL guardrails verified: SELECT-only statement inspection + read-only SQLite connection; 7 attack patterns blocked in testing
+- All six curated demo questions answer correctly by voice, including cross-source ("why did margins improve?") and history follow-ups; full voice-to-voice round trip verified at ~10-16s
+- Latency work: parallel per-sentence Aura TTS chunks (TTS 9.8s → ~5s); remaining gap to the ~6s target needs streaming TTS — scheduled for Phase 3
+- Runs entirely on existing `.env` keys (Anthropic + Deepgram free credit), zero new spend
+- Plan: `plans/2026-07-05-jarvis-phase1-voice-loop.md` (implemented) · Concept: `plans/explore-2026-07-05-jarvis-voice-orb.md`
+
+---
+
 ## 2026-06-24
 
 ### Invoice Extraction Demo (LlamaParse) + Drive Demo Fix

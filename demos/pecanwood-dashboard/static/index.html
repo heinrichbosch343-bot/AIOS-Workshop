@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pecanwood Portfolio — Louise Cawood · Seeff Pecanwood</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-estate">PECANWOOD PORTFOLIO</span>
+    <h1>Louise Cawood <span class="office">· Seeff Pecanwood</span></h1>
+  </div>
+  <div class="top-right">
+    <div class="dateline" id="dateline">Monday 6 July 2026</div>
+    <div class="sourceline">Live public data · seeff.com &amp; property24.com</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- KPI strip -->
+  <section class="kpis" id="kpis"></section>
+
+  <!-- charts row -->
+  <div class="row charts-row">
+    <section class="panel panel-chart">
+      <div class="panel-head">
+        <h2>Priced against the estate</h2>
+        <span class="panel-caption">brass line = estate median <span id="median-label"></span> · click a dot</span>
+      </div>
+      <div class="chart-wrap"><canvas id="scatter"></canvas></div>
+    </section>
+
+    <section class="panel panel-market">
+      <div class="panel-head">
+        <h2>Market share</h2>
+        <span class="panel-caption">Property24</span>
+      </div>
+      <div id="competitors"></div>
+      <div class="solds">
+        <h3>Recently sold</h3>
+        <div id="solds"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- main row: table + right rail -->
+  <div class="row main-row">
+    <section class="panel panel-table">
+      <div class="panel-head">
+        <h2>Your book <span class="count" id="book-count"></span></h2>
+        <div class="table-tools">
+          <input type="search" id="search" placeholder="Search address, ref, type…">
+          <select id="sort">
+            <option value="price-desc">Price · high to low</option>
+            <option value="price-asc">Price · low to high</option>
+            <option value="vs-desc">Most above median</option>
+            <option value="vs-asc">Most below median</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-scroll">
+        <table id="listings">
+          <thead>
+            <tr>
+              <th>Listing</th>
+              <th class="num">Asking</th>
+              <th class="num">Size</th>
+              <th class="num">R/m²</th>
+              <th class="num">vs median</th>
+              <th>Mandate</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <aside class="rail">
+      <section class="panel panel-updates">
+        <div class="panel-head">
+          <h2>Monday seller updates</h2>
+          <span class="panel-caption">every seller · 06:00</span>
+        </div>
+        <div id="reports"></div>
+        <div class="queue-note"><span class="queue-dot"></span><span id="queue-count"></span> more, automatic</div>
+      </section>
+
+      <section class="panel panel-leads">
+        <div class="panel-head">
+          <h2>Instant lead replies</h2>
+          <span class="chip chip-sample">SAMPLE</span>
+        </div>
+        <div id="lead-feed"></div>
+        <button id="replay" class="ghost-btn">Replay</button>
+      </section>
+    </aside>
+  </div>
+
+</main>
+
+<!-- listing drawer -->
+<div id="drawer-backdrop" hidden></div>
+<aside id="drawer" hidden>
+  <button id="drawer-close" aria-label="Close">×</button>
+  <div id="drawer-body"></div>
+</aside>
+
+<footer>
+  <span>Built by <strong>BOSCHLY</strong> · public listing data, 6 July 2026 · SAMPLE marks illustrative panels</span>
+</footer>
+
+<script src="/static/vendor/chart.umd.js"></script>
+<script src="/static/app.js"></script>
+</body>
+</html>

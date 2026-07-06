@@ -1,0 +1,1092 @@
+{
+ "captured": "2026-07-06",
+ "agent": {
+  "name": "Louise Cawood",
+  "office": "Seeff Pecanwood",
+  "office_deals_public": 139
+ },
+ "estate": {
+  "name": "Pecanwood Golf Estate",
+  "homes": 880
+ },
+ "stats": {
+  "active_sale": 49,
+  "book_value": 241285000,
+  "median_rpm2": 13370,
+  "priced_listings": 46,
+  "pct_estate_on_market": 5.6
+ },
+ "competitors": [
+  {
+   "name": "Pam Golding",
+   "listings": 44
+  },
+  {
+   "name": "Seeff Pecanwood",
+   "listings": 42,
+   "us": true
+  },
+  {
+   "name": "RE/MAX Horizon",
+   "listings": 35
+  },
+  {
+   "name": "Property Active",
+   "listings": 22
+  },
+  {
+   "name": "15 smaller agencies",
+   "listings": 43
+  }
+ ],
+ "recent_solds": [
+  {
+   "price": 3500000,
+   "title": "4 Bedroom Freehold Sold in Pecanwood Estate"
+  },
+  {
+   "price": 4500000,
+   "title": "4 Bedroom Freehold Sold in Pecanwood Estate"
+  },
+  {
+   "price": 3350000,
+   "title": "4 Bedroom Freehold Sold in Pecanwood Estate"
+  },
+  {
+   "price": 4100000,
+   "title": "3 Bedroom Freehold Sold in Pecanwood Estate"
+  },
+  {
+   "price": 4150000,
+   "title": "4 Bedroom House Sold in Pecanwood Estate"
+  },
+  {
+   "price": 2850000,
+   "title": "4 Bedroom Freehold Sold in Pecanwood Estate"
+  },
+  {
+   "price": 3175000,
+   "title": "3 Bedroom House Sold in Pecanwood Estate"
+  },
+  {
+   "price": 3150000,
+   "title": "3 Bedroom House Sold in Pecanwood Estate"
+  },
+  {
+   "price": 6500000,
+   "title": "4 Bedroom Freehold Sold in Pecanwood Estate"
+  }
+ ],
+ "recent_rented": [
+  {
+   "price": 30000,
+   "title": "5 Bedroom House Rented in Pecanwood Estate"
+  },
+  {
+   "price": 28000,
+   "title": "3 Bedroom Freehold Rented in Pecanwood Estate"
+  },
+  {
+   "price": 34000,
+   "title": "4 Bedroom House Rented in Pecanwood Estate"
+  },
+  {
+   "price": 32000,
+   "title": "4 Bedroom House Rented in Pecanwood Estate"
+  },
+  {
+   "price": 34000,
+   "title": "4 Bedroom Freehold Rented in Pecanwood Estate"
+  },
+  {
+   "price": 40000,
+   "title": "4 Bedroom House Rented in Pecanwood Estate"
+  },
+  {
+   "price": 25000,
+   "title": "3 Bedroom Freehold Rented in Pecanwood Estate"
+  }
+ ],
+ "listings": [
+  {
+   "ref": "213162",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/213162/3-lakeside-close/",
+   "title": "5 Bedroom House For Sale in Pecanwood Estate",
+   "address": "3 Lakeside Close",
+   "price": 13000000,
+   "size": 511,
+   "beds": 5,
+   "baths": 5.5,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 25440,
+   "vs_median_pct": 90,
+   "report": null,
+   "sample": {
+    "views_week": 304,
+    "enquiries_week": 4,
+    "viewings_booked": 0,
+    "days_listed": 123
+   }
+  },
+  {
+   "ref": "1259088",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1259088/39-lakeview-drive/",
+   "title": "6 Bedroom House For Sale in Pecanwood Estate",
+   "address": "39 Lakeview Drive",
+   "price": 12500000,
+   "size": 604,
+   "beds": 6,
+   "baths": 5.5,
+   "mandate": null,
+   "rpm2": 20695,
+   "vs_median_pct": 55,
+   "report": null,
+   "sample": {
+    "views_week": 246,
+    "enquiries_week": 1,
+    "viewings_booked": 0,
+    "days_listed": 69
+   }
+  },
+  {
+   "ref": "1820464",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1820464/",
+   "title": "4 Bedroom House For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 11660000,
+   "size": 720,
+   "beds": 4,
+   "baths": 4.5,
+   "mandate": null,
+   "rpm2": 16194,
+   "vs_median_pct": 21,
+   "report": null,
+   "sample": {
+    "views_week": 298,
+    "enquiries_week": 3,
+    "viewings_booked": 1,
+    "days_listed": 125
+   }
+  },
+  {
+   "ref": "1958094",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1958094/6-mountain-view-drive/",
+   "title": "5 Bedroom House For Sale in Pecanwood Estate",
+   "address": "6 Mountain View Drive",
+   "price": 9900000,
+   "size": 476,
+   "beds": 5,
+   "baths": 4.5,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 20798,
+   "vs_median_pct": 56,
+   "report": "seller-update-6-mountain-view-drive.pdf",
+   "sample": {
+    "views_week": 268,
+    "enquiries_week": 3,
+    "viewings_booked": 0,
+    "days_listed": 75
+   }
+  },
+  {
+   "ref": "3118007",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3118007/11-lakeside-close/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": "11 Lakeside Close",
+   "price": 9000000,
+   "size": 333,
+   "beds": 4,
+   "baths": 4.5,
+   "mandate": null,
+   "rpm2": 27027,
+   "vs_median_pct": 102,
+   "report": null,
+   "sample": {
+    "views_week": 109,
+    "enquiries_week": 4,
+    "viewings_booked": 2,
+    "days_listed": 178
+   }
+  },
+  {
+   "ref": "1447236",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1447236/",
+   "title": "3 Bedroom House For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 8500000,
+   "size": 374,
+   "beds": 3,
+   "baths": 3.5,
+   "mandate": "Sole Mandate",
+   "rpm2": 22727,
+   "vs_median_pct": 70,
+   "report": null,
+   "sample": {
+    "views_week": 262,
+    "enquiries_week": 2,
+    "viewings_booked": 0,
+    "days_listed": 57
+   }
+  },
+  {
+   "ref": "1550999",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1550999/",
+   "title": "4 Bedroom House For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 8250000,
+   "size": 588,
+   "beds": 4,
+   "baths": 4.5,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 14031,
+   "vs_median_pct": 5,
+   "report": null,
+   "sample": {
+    "views_week": 273,
+    "enquiries_week": 3,
+    "viewings_booked": 2,
+    "days_listed": 70
+   }
+  },
+  {
+   "ref": "2408449",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freestanding/2408449/",
+   "title": "4 Bedroom Freestanding For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 7750000,
+   "size": 444,
+   "beds": 4,
+   "baths": 4.5,
+   "mandate": null,
+   "rpm2": 17455,
+   "vs_median_pct": 31,
+   "report": null,
+   "sample": {
+    "views_week": 163,
+    "enquiries_week": 3,
+    "viewings_booked": 1,
+    "days_listed": 200
+   }
+  },
+  {
+   "ref": "3309911",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3309911/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 7000000,
+   "size": 375,
+   "beds": 4,
+   "baths": 3.5,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 18667,
+   "vs_median_pct": 40,
+   "report": null,
+   "sample": {
+    "views_week": 277,
+    "enquiries_week": 2,
+    "viewings_booked": 2,
+    "days_listed": 82
+   }
+  },
+  {
+   "ref": "472262",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/472262/84-jack-nicklaus-drive/",
+   "title": "5 Bedroom House For Sale in Pecanwood Estate",
+   "address": "84 Jack Nicklaus Drive",
+   "price": 6700000,
+   "size": 569,
+   "beds": 5,
+   "baths": 5.5,
+   "mandate": null,
+   "rpm2": 11775,
+   "vs_median_pct": -12,
+   "report": null,
+   "sample": {
+    "views_week": 284,
+    "enquiries_week": 4,
+    "viewings_booked": 2,
+    "days_listed": 103
+   }
+  },
+  {
+   "ref": "1493235",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1493235/",
+   "title": "4 Bedroom House For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 6500000,
+   "size": 499,
+   "beds": 4,
+   "baths": 4.5,
+   "mandate": null,
+   "rpm2": 13026,
+   "vs_median_pct": -3,
+   "report": null,
+   "sample": {
+    "views_week": 305,
+    "enquiries_week": 0,
+    "viewings_booked": 0,
+    "days_listed": 66
+   }
+  },
+  {
+   "ref": "3042237",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3042237/",
+   "title": "5 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 5950000,
+   "size": 316,
+   "beds": 5,
+   "baths": 4,
+   "mandate": null,
+   "rpm2": 18829,
+   "vs_median_pct": 41,
+   "report": null,
+   "sample": {
+    "views_week": 299,
+    "enquiries_week": 4,
+    "viewings_booked": 0,
+    "days_listed": 108
+   }
+  },
+  {
+   "ref": "2919771",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2919771/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 5900000,
+   "size": 479,
+   "beds": 4,
+   "baths": 4.5,
+   "mandate": "Sole Mandate",
+   "rpm2": 12317,
+   "vs_median_pct": -8,
+   "report": null,
+   "sample": {
+    "views_week": 177,
+    "enquiries_week": 2,
+    "viewings_booked": 0,
+    "days_listed": 102
+   }
+  },
+  {
+   "ref": "1335010",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1335010/",
+   "title": "5 Bedroom House For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 5850000,
+   "size": 319,
+   "beds": 5,
+   "baths": 5,
+   "mandate": null,
+   "rpm2": 18339,
+   "vs_median_pct": 37,
+   "report": null,
+   "sample": {
+    "views_week": 180,
+    "enquiries_week": 0,
+    "viewings_booked": 1,
+    "days_listed": 191
+   }
+  },
+  {
+   "ref": "2796514",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2796514/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 5450000,
+   "size": 404,
+   "beds": 4,
+   "baths": 3,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 13490,
+   "vs_median_pct": 1,
+   "report": null,
+   "sample": {
+    "views_week": 268,
+    "enquiries_week": 3,
+    "viewings_booked": 1,
+    "days_listed": 35
+   }
+  },
+  {
+   "ref": "1076844",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1076844/14-lakeside-close/",
+   "title": "4 Bedroom House For Sale in Pecanwood Estate",
+   "address": "14 Lakeside Close",
+   "price": 4950000,
+   "size": 340,
+   "beds": 4,
+   "baths": 4.5,
+   "mandate": null,
+   "rpm2": 14559,
+   "vs_median_pct": 9,
+   "report": null,
+   "sample": {
+    "views_week": 218,
+    "enquiries_week": 3,
+    "viewings_booked": 0,
+    "days_listed": 45
+   }
+  },
+  {
+   "ref": "3175278",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/golf-estate/3175278/",
+   "title": "4 Bedroom Golf Estate For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 4500000,
+   "size": 310,
+   "beds": 4,
+   "baths": 3.5,
+   "mandate": "Sole Mandate",
+   "rpm2": 14516,
+   "vs_median_pct": 9,
+   "report": null,
+   "sample": {
+    "views_week": 96,
+    "enquiries_week": 1,
+    "viewings_booked": 0,
+    "days_listed": 159
+   }
+  },
+  {
+   "ref": "3104128",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3104128/146-jack-nicklaus-drive/",
+   "title": "6 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": "146 Jack Nicklaus Drive",
+   "price": 4500000,
+   "size": 460,
+   "beds": 6,
+   "baths": 6.5,
+   "mandate": null,
+   "rpm2": 9783,
+   "vs_median_pct": -27,
+   "report": null,
+   "sample": {
+    "views_week": 286,
+    "enquiries_week": 1,
+    "viewings_booked": 1,
+    "days_listed": 149
+   }
+  },
+  {
+   "ref": "3036115",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3036115/",
+   "title": "4 Bedroom Freehold Sold in Pecanwood Estate",
+   "address": null,
+   "price": 4500000,
+   "size": 300,
+   "beds": 4,
+   "baths": 4.5,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 15000,
+   "vs_median_pct": 12,
+   "report": null,
+   "sample": {
+    "views_week": 165,
+    "enquiries_week": 0,
+    "viewings_booked": 1,
+    "days_listed": 86
+   }
+  },
+  {
+   "ref": "3000327",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3000327/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 4500000,
+   "size": 270,
+   "beds": 4,
+   "baths": 3,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 16667,
+   "vs_median_pct": 25,
+   "report": null,
+   "sample": {
+    "views_week": 189,
+    "enquiries_week": 4,
+    "viewings_booked": 0,
+    "days_listed": 78
+   }
+  },
+  {
+   "ref": "423687",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/423687/",
+   "title": "3 Bedroom House For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 4350000,
+   "size": 290,
+   "beds": 3,
+   "baths": 2,
+   "mandate": "Sole Mandate",
+   "rpm2": 15000,
+   "vs_median_pct": 12,
+   "report": null,
+   "sample": {
+    "views_week": 189,
+    "enquiries_week": 4,
+    "viewings_booked": 0,
+    "days_listed": 198
+   }
+  },
+  {
+   "ref": "3302285",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freestanding/3302285/",
+   "title": "4 Bedroom Freestanding For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 4250000,
+   "size": 328,
+   "beds": 4,
+   "baths": 4.5,
+   "mandate": null,
+   "rpm2": 12957,
+   "vs_median_pct": -3,
+   "report": null,
+   "sample": {
+    "views_week": 155,
+    "enquiries_week": 0,
+    "viewings_booked": 2,
+    "days_listed": 76
+   }
+  },
+  {
+   "ref": "2910859",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2910859/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 4200000,
+   "size": 317,
+   "beds": 4,
+   "baths": 3,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 13249,
+   "vs_median_pct": -1,
+   "report": null,
+   "sample": {
+    "views_week": 213,
+    "enquiries_week": 3,
+    "viewings_booked": 1,
+    "days_listed": 170
+   }
+  },
+  {
+   "ref": "3086127",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3086127/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 4150000,
+   "size": 320,
+   "beds": 4,
+   "baths": 3,
+   "mandate": "Sole Mandate",
+   "rpm2": 12969,
+   "vs_median_pct": -3,
+   "report": null,
+   "sample": {
+    "views_week": 189,
+    "enquiries_week": 4,
+    "viewings_booked": 0,
+    "days_listed": 138
+   }
+  },
+  {
+   "ref": "2926979",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2926979/35-fish-eagle-drive/",
+   "title": "5 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": "35 Fish Eagle Drive",
+   "price": 4100000,
+   "size": 225,
+   "beds": 5,
+   "baths": 3,
+   "mandate": null,
+   "rpm2": 18222,
+   "vs_median_pct": 36,
+   "report": null,
+   "sample": {
+    "views_week": 233,
+    "enquiries_week": 3,
+    "viewings_booked": 2,
+    "days_listed": 190
+   }
+  },
+  {
+   "ref": "1843672",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1843672/",
+   "title": "4 Bedroom House For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3995000,
+   "size": 307,
+   "beds": 4,
+   "baths": 2,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 13013,
+   "vs_median_pct": -3,
+   "report": null,
+   "sample": {
+    "views_week": 114,
+    "enquiries_week": 4,
+    "viewings_booked": 1,
+    "days_listed": 173
+   }
+  },
+  {
+   "ref": "3147452",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3147452/",
+   "title": "3 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3975000,
+   "size": 307,
+   "beds": 3,
+   "baths": 3.5,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 12948,
+   "vs_median_pct": -3,
+   "report": null,
+   "sample": {
+    "views_week": 134,
+    "enquiries_week": 4,
+    "viewings_booked": 2,
+    "days_listed": 73
+   }
+  },
+  {
+   "ref": "3056002",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3056002/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3950000,
+   "size": 262,
+   "beds": 4,
+   "baths": 4,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 15076,
+   "vs_median_pct": 13,
+   "report": null,
+   "sample": {
+    "views_week": 304,
+    "enquiries_week": 4,
+    "viewings_booked": 1,
+    "days_listed": 143
+   }
+  },
+  {
+   "ref": "3308020",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3308020/",
+   "title": "3 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3650000,
+   "size": 336,
+   "beds": 3,
+   "baths": 3.5,
+   "mandate": "Sole Mandate",
+   "rpm2": 10863,
+   "vs_median_pct": -19,
+   "report": null,
+   "sample": {
+    "views_week": 270,
+    "enquiries_week": 0,
+    "viewings_booked": 1,
+    "days_listed": 161
+   }
+  },
+  {
+   "ref": "3148948",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3148948/",
+   "title": "5 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3500000,
+   "size": 284,
+   "beds": 5,
+   "baths": 3,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 12324,
+   "vs_median_pct": -8,
+   "report": null,
+   "sample": {
+    "views_week": 266,
+    "enquiries_week": 1,
+    "viewings_booked": 1,
+    "days_listed": 149
+   }
+  },
+  {
+   "ref": "3036647",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3036647/",
+   "title": "4 Bedroom Freehold Sold in Pecanwood Estate",
+   "address": null,
+   "price": 3500000,
+   "size": 267,
+   "beds": 4,
+   "baths": 3.5,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 13109,
+   "vs_median_pct": -2,
+   "report": null,
+   "sample": {
+    "views_week": 269,
+    "enquiries_week": 4,
+    "viewings_booked": 2,
+    "days_listed": 178
+   }
+  },
+  {
+   "ref": "3001224",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3001224/8-forest-crescent/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": "8 Forest Crescent",
+   "price": 3500000,
+   "size": 308,
+   "beds": 4,
+   "baths": 3,
+   "mandate": null,
+   "rpm2": 11364,
+   "vs_median_pct": -15,
+   "report": "seller-update-8-forest-crescent.pdf",
+   "sample": {
+    "views_week": 158,
+    "enquiries_week": 3,
+    "viewings_booked": 0,
+    "days_listed": 45
+   }
+  },
+  {
+   "ref": "2183292",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/2183292/",
+   "title": "3 Bedroom House For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3450000,
+   "size": 210,
+   "beds": 3,
+   "baths": 2,
+   "mandate": null,
+   "rpm2": 16429,
+   "vs_median_pct": 23,
+   "report": null,
+   "sample": {
+    "views_week": 94,
+    "enquiries_week": 4,
+    "viewings_booked": 0,
+    "days_listed": 93
+   }
+  },
+  {
+   "ref": "3152330",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3152330/",
+   "title": "3 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3350000,
+   "size": 224,
+   "beds": 3,
+   "baths": 2.5,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 14955,
+   "vs_median_pct": 12,
+   "report": null,
+   "sample": {
+    "views_week": 220,
+    "enquiries_week": 0,
+    "viewings_booked": 2,
+    "days_listed": 91
+   }
+  },
+  {
+   "ref": "3035709",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3035709/",
+   "title": "4 Bedroom Freehold Sold in Pecanwood Estate",
+   "address": null,
+   "price": 3350000,
+   "size": 306,
+   "beds": 4,
+   "baths": 3.5,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 10948,
+   "vs_median_pct": -18,
+   "report": null,
+   "sample": {
+    "views_week": 103,
+    "enquiries_week": 3,
+    "viewings_booked": 0,
+    "days_listed": 120
+   }
+  },
+  {
+   "ref": "3180645",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/golf-estate/3180645/",
+   "title": "3 Bedroom Golf Estate For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3310000,
+   "size": 297,
+   "beds": 3,
+   "baths": 2,
+   "mandate": null,
+   "rpm2": 11145,
+   "vs_median_pct": -17,
+   "report": null,
+   "sample": {
+    "views_week": 235,
+    "enquiries_week": 0,
+    "viewings_booked": 0,
+    "days_listed": 156
+   }
+  },
+  {
+   "ref": "3166803",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3166803/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3250000,
+   "size": 348,
+   "beds": 4,
+   "baths": 3.5,
+   "mandate": null,
+   "rpm2": 9339,
+   "vs_median_pct": -30,
+   "report": null,
+   "sample": {
+    "views_week": 241,
+    "enquiries_week": 1,
+    "viewings_booked": 0,
+    "days_listed": 174
+   }
+  },
+  {
+   "ref": "2925623",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2925623/",
+   "title": "3 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3250000,
+   "size": 300,
+   "beds": 3,
+   "baths": 3,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 10833,
+   "vs_median_pct": -19,
+   "report": null,
+   "sample": {
+    "views_week": 221,
+    "enquiries_week": 1,
+    "viewings_booked": 2,
+    "days_listed": 34
+   }
+  },
+  {
+   "ref": "2985069",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2985069/32-fish-eagle-drive/",
+   "title": "3 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": "32 Fish Eagle Drive",
+   "price": 3195000,
+   "size": 246,
+   "beds": 3,
+   "baths": 3,
+   "mandate": null,
+   "rpm2": 12988,
+   "vs_median_pct": -3,
+   "report": null,
+   "sample": {
+    "views_week": 163,
+    "enquiries_week": 3,
+    "viewings_booked": 0,
+    "days_listed": 180
+   }
+  },
+  {
+   "ref": "2988115",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2988115/202-jack-nicklaus-drive/",
+   "title": "3 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": "202 Jack Nicklaus Drive",
+   "price": 3190000,
+   "size": 212,
+   "beds": 3,
+   "baths": 2.5,
+   "mandate": null,
+   "rpm2": 15047,
+   "vs_median_pct": 13,
+   "report": "seller-update-202-jack-nicklaus-drive.pdf",
+   "sample": {
+    "views_week": 225,
+    "enquiries_week": 0,
+    "viewings_booked": 1,
+    "days_listed": 26
+   }
+  },
+  {
+   "ref": "2977029",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2977029/",
+   "title": "3 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3175000,
+   "size": 229,
+   "beds": 3,
+   "baths": 2,
+   "mandate": "Sole Mandate",
+   "rpm2": 13865,
+   "vs_median_pct": 4,
+   "report": null,
+   "sample": {
+    "views_week": 123,
+    "enquiries_week": 3,
+    "viewings_booked": 0,
+    "days_listed": 120
+   }
+  },
+  {
+   "ref": "3166640",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3166640/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 3150000,
+   "size": 260,
+   "beds": 4,
+   "baths": 3,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 12115,
+   "vs_median_pct": -9,
+   "report": null,
+   "sample": {
+    "views_week": 150,
+    "enquiries_week": 0,
+    "viewings_booked": 2,
+    "days_listed": 181
+   }
+  },
+  {
+   "ref": "2341725",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2341725/",
+   "title": "3 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 2995000,
+   "size": 290,
+   "beds": 3,
+   "baths": 3,
+   "mandate": null,
+   "rpm2": 10328,
+   "vs_median_pct": -23,
+   "report": null,
+   "sample": {
+    "views_week": 215,
+    "enquiries_week": 0,
+    "viewings_booked": 0,
+    "days_listed": 96
+   }
+  },
+  {
+   "ref": "2409412",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2409412/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 2950000,
+   "size": null,
+   "beds": 4,
+   "baths": 3,
+   "mandate": null,
+   "rpm2": null,
+   "vs_median_pct": null,
+   "report": null,
+   "sample": {
+    "views_week": 154,
+    "enquiries_week": 4,
+    "viewings_booked": 1,
+    "days_listed": 173
+   }
+  },
+  {
+   "ref": "2554303",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/2554303/",
+   "title": "4 Bedroom Freehold Sold in Pecanwood Estate",
+   "address": null,
+   "price": 2850000,
+   "size": 228,
+   "beds": 4,
+   "baths": 3,
+   "mandate": null,
+   "rpm2": 12500,
+   "vs_median_pct": -7,
+   "report": null,
+   "sample": {
+    "views_week": 161,
+    "enquiries_week": 1,
+    "viewings_booked": 1,
+    "days_listed": 74
+   }
+  },
+  {
+   "ref": "3000496",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/freehold/3000496/",
+   "title": "4 Bedroom Freehold For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 2800000,
+   "size": 231,
+   "beds": 4,
+   "baths": 3,
+   "mandate": "Sole Mandate",
+   "rpm2": 12121,
+   "vs_median_pct": -9,
+   "report": null,
+   "sample": {
+    "views_week": 282,
+    "enquiries_week": 2,
+    "viewings_booked": 1,
+    "days_listed": 137
+   }
+  },
+  {
+   "ref": "833134",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/833134/138-jack-nicklaus-drive/",
+   "title": "3 Bedroom House For Sale in Pecanwood Estate",
+   "address": "138 Jack Nicklaus Drive",
+   "price": 2350000,
+   "size": 207,
+   "beds": 3,
+   "baths": 2,
+   "mandate": null,
+   "rpm2": 11353,
+   "vs_median_pct": -15,
+   "report": null,
+   "sample": {
+    "views_week": 308,
+    "enquiries_week": 3,
+    "viewings_booked": 1,
+    "days_listed": 155
+   }
+  },
+  {
+   "ref": "1821553",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1821553/",
+   "title": "House For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 350000,
+   "size": 30,
+   "beds": null,
+   "baths": null,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 11667,
+   "vs_median_pct": null,
+   "report": null,
+   "sample": {
+    "views_week": 111,
+    "enquiries_week": 1,
+    "viewings_booked": 1,
+    "days_listed": 44
+   }
+  },
+  {
+   "ref": "1850029",
+   "url": "https://www.seeff.com/results/residential/for-sale/hartbeespoort/pecanwood-estate/house/1850029/",
+   "title": "House For Sale in Pecanwood Estate",
+   "address": null,
+   "price": 340000,
+   "size": 33,
+   "beds": null,
+   "baths": null,
+   "mandate": "Exclusive Sole Mandate",
+   "rpm2": 10303,
+   "vs_median_pct": null,
+   "report": null,
+   "sample": {
+    "views_week": 143,
+    "enquiries_week": 3,
+    "viewings_booked": 1,
+    "days_listed": 80
+   }
+  }
+ ]
+}

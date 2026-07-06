@@ -8,6 +8,14 @@
 
 ---
 
+## 2026-07-06
+
+### Pecanwood Realtor Prospect — Research, Seller Reports, Dashboard Demo
+- Researched Seeff Pecanwood (Louise Cawood, warm contact) and the estate: 880 homes, resale-only, competitive market on Property24 (Pam Golding 44 / Seeff 42 / RE/MAX 35) — report in `outputs/research/pecanwood-seeff-2026-07-06.md`
+- Scraped her full public book via Firecrawl (49 for-sale listings, R241M; 139 concluded deals) and built 3 sample "Monday Seller Update" PDFs from her real listings — the leave-behind, in `outputs/proposals/pecanwood-seller-reports/`
+- Built the show-piece dashboard `demos/pecanwood-dashboard/` (port 8509): KPI strip, price-vs-size scatter against the estate median, market-share bars, sortable book table with per-listing drawer, seller-updates rail, simulated instant lead responder (SAMPLE-labeled)
+- Agreed scope for her: dashboard + instant lead responder + weekly/monthly seller report automation. Spearhead pitch: out-service Pam Golding and RE/MAX on seller feedback at zero time cost
+
 ## 2026-07-05
 
 ### Johan Orb v2 — Fullscreen Plasma Render

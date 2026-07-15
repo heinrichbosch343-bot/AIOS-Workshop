@@ -9,7 +9,7 @@ GET  /email/drip/status  — counts + per-row status, so the local dashboard
 from fastapi import APIRouter, Header, HTTPException
 from pydantic import BaseModel
 
-from config import API_SECRET_KEY
+from config import API_SECRET_KEY, EMAIL_DRIP_ENABLED, EMAIL_DRIP_DAILY_CAP
 from db.client import supabase
 
 router = APIRouter(prefix="/email/drip", tags=["email-drip"])
@@ -68,4 +68,5 @@ def status(x_api_key: str = Header(...)):
     counts: dict[str, int] = {}
     for r in rows:
         counts[r["status"]] = counts.get(r["status"], 0) + 1
-    return {"counts": counts, "rows": rows}
+    return {"enabled": EMAIL_DRIP_ENABLED, "daily_cap": EMAIL_DRIP_DAILY_CAP,
+            "counts": counts, "rows": rows}

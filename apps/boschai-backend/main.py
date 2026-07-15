@@ -15,6 +15,7 @@ from routes.extract import router as extract_router
 from routes.signoff import router as signoff_router
 from routes.projects import router as projects_router
 from routes.email import router as email_router
+from routes.email_drip import router as email_drip_router
 from routes.brief import router as brief_router
 from routes.research import router as research_router
 from routes.knowledge import router as knowledge_router
@@ -75,6 +76,7 @@ app.include_router(extract_router)
 app.include_router(signoff_router)
 app.include_router(projects_router)
 app.include_router(email_router)
+app.include_router(email_drip_router)
 app.include_router(brief_router)
 app.include_router(research_router)
 app.include_router(knowledge_router)

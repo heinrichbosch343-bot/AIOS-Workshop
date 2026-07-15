@@ -89,6 +89,17 @@ def start_scheduler():
                 id="campaign_responder", replace_existing=True, misfire_grace_time=300)
     # === BoschAI: Follow-ups (lane B) — END ===
 
+    # === BoschAI: Email drip (outreach queue) — BEGIN ===
+    from config import EMAIL_DRIP_ENABLED
+    if EMAIL_DRIP_ENABLED:
+        from services import email_drip
+        sch.add_job(_safe(email_drip.tick),
+                    IntervalTrigger(minutes=1),
+                    id="email_drip", replace_existing=True, misfire_grace_time=120)
+        print("[scheduler] email drip: draining email_queue 07:30-18:30 SAST, "
+              "3-9 min gaps", flush=True)
+    # === BoschAI: Email drip — END ===
+
     # === BoschAI: LinkedIn (lane A) — BEGIN ===
     from config import LINKEDIN_SCHEDULER_ENABLED
     if LINKEDIN_SCHEDULER_ENABLED:

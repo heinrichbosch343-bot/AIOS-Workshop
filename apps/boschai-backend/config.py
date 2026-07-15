@@ -85,6 +85,12 @@ LINKEDIN_DRAFTING_MODEL = os.environ.get("LINKEDIN_DRAFTING_MODEL", "claude-sonn
 LINKEDIN_SCHEDULER_ENABLED = os.environ.get("LINKEDIN_SCHEDULER_ENABLED", "0") == "1"
 # === BoschAI: LinkedIn (lane A) — END ===
 
+# EMAIL_DRIP_ENABLED: set to "1" to activate the outreach email drip (scheduler
+# drains the email_queue table one send at a time, 3-9 min apart, 07:30-18:30 SAST).
+# Off by default so a deploy never starts sending until Heinrich flips it.
+EMAIL_DRIP_ENABLED = os.environ.get("EMAIL_DRIP_ENABLED", "0") == "1"
+EMAIL_DRIP_DAILY_CAP = int(os.environ.get("EMAIL_DRIP_DAILY_CAP", "25"))
+
 # DAILY_BRIEF_ENABLED: set to "1" to send the 06:00 SAST morning brief.
 # Paused at Heinrich's request 2026-07-02; the /dailybrief Telegram command
 # still fires a brief on demand while this is off.

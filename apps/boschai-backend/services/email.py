@@ -343,3 +343,17 @@ def create_draft(to: str, subject: str, body: str) -> dict:
         body={"message": {"raw": raw}},
     ).execute()
     return {"draft_id": draft.get("id"), "to": to, "subject": subject}
+
+
+def send_new(to: str, subject: str, body: str) -> dict:
+    """Send a brand-new email (not a reply). Used by the drip queue."""
+    body = _sanitize_outgoing(body)
+    mime = MIMEText(body)
+    mime["To"] = to
+    mime["Subject"] = subject
+    raw = base64.urlsafe_b64encode(mime.as_bytes()).decode()
+    sent = _gmail().users().messages().send(
+        userId="me",
+        body={"raw": raw},
+    ).execute()
+    return {"sent_id": sent.get("id"), "to": to, "subject": subject}

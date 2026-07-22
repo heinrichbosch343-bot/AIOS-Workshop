@@ -2,7 +2,7 @@
 Email drip — sends queued outreach emails one at a time with random gaps.
 
 The scheduler calls tick() every minute. Most ticks do nothing: outside the
-07:30-18:30 SAST window it sleeps, and between sends it waits out a random
+07:30-15:00 SAST window it sleeps, and between sends it waits out a random
 3-9 minute gap so the pattern never looks like a burst. A hard daily cap
 (EMAIL_DRIP_DAILY_CAP, default 25) protects Gmail deliverability.
 
@@ -20,7 +20,7 @@ from services import email as email_service
 
 TZ = ZoneInfo("Africa/Johannesburg")
 WINDOW_START = dtime(7, 30)
-WINDOW_END = dtime(18, 30)
+WINDOW_END = dtime(15, 0)
 GAP_SECONDS = (180, 540)  # 3 to 9 minutes between sends
 
 _next_send_at: datetime | None = None  # in-process pacing gate

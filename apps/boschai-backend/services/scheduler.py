@@ -96,7 +96,7 @@ def start_scheduler():
         sch.add_job(_safe(email_drip.tick),
                     IntervalTrigger(minutes=1),
                     id="email_drip", replace_existing=True, misfire_grace_time=120)
-        print("[scheduler] email drip: draining email_queue 07:30-18:30 SAST, "
+        print("[scheduler] email drip: draining email_queue 07:30-15:00 SAST, "
               "3-9 min gaps", flush=True)
     # === BoschAI: Email drip — END ===
 

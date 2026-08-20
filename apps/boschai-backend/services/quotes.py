@@ -148,15 +148,51 @@ Rules:
   access arrangements or lead times."""
 
 
+_MONEY = re.compile(r"(?:r\s*\d|\d[\d\s,]*\s*(?:rand|k\b)|\b\d{3,}\b)", re.I)
+
+
+def looks_like_a_new_job(text: str) -> bool:
+    """A message carrying both a contact number and a price is a fresh job, not a tweak.
+
+    This exists because a real one got eaten: with a R900 draft open, "Heinrich
+    R15000, Fridge broken, 076 389 7179" was handed to the model as a correction
+    and came back as the original R900. A new job must replace the draft, never
+    patch it.
+    """
+    if normalize_sa_phone_in(text) is None:
+        return False
+    # The phone number has to come out BEFORE looking for a price, or its own
+    # digits read as one: "her number is 083 555 1234" is a correction, not a
+    # new job, and 083 would otherwise count as an amount.
+    without_phone = re.sub(r"[\d\s+()-]{9,}", " ", text)
+    return bool(_MONEY.search(without_phone))
+
+
+def normalize_sa_phone_in(text: str):
+    """First plausible SA mobile or landline appearing anywhere in free text."""
+    for candidate in re.findall(r"(?:\+?\d[\d\s()-]{7,})", text or ""):
+        e164 = normalize_sa_phone(candidate)
+        if e164:
+            return e164
+    return None
+
+
 def parse_message(text: str, prior=None) -> dict:
-    """Message in, structured quote out. `prior` is an existing draft being corrected."""
+    """Message in, structured quote out. `prior` is an existing draft being adjusted."""
+    if prior and looks_like_a_new_job(text):
+        prior = None   # a whole new job wipes the old draft rather than merging into it
+
     if prior:
         prompt = (
             "The current draft is:\n"
             + json.dumps(prior, indent=2)
-            + "\n\nHe has just sent a correction:\n"
+            + "\n\nHe has just sent this:\n"
             + text
-            + "\n\nApply it and return the COMPLETE corrected object, not just the change."
+            + "\n\nIf it is an adjustment to the draft (a new price, a corrected "
+              "number, an extra item), apply it and return the COMPLETE corrected "
+              "object. If it is actually a DIFFERENT job, ignore the draft entirely "
+              "and return the new job on its own. Never return the draft unchanged: "
+              "he sent this for a reason."
         )
     else:
         prompt = text

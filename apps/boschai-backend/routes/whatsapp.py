@@ -37,12 +37,13 @@ router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which
 # build Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-3 (2026-08-20, lock + persistence + forgiving SEND)"
+BUILD = "quotebot-4 (2026-08-20, quoted-reply fix + new-job-replaces-draft)"
 
 EMPTY_TWIML = Response(content="<Response></Response>", media_type="application/xml")
 
 YES = {"send", "yes", "y", "ja", "ok", "okay", "go", "send it", "stuur"}
-NO = {"cancel", "no", "nee", "stop", "scrap", "delete"}
+NO = {"cancel", "no", "nee", "stop", "scrap", "delete", "reset", "clear",
+      "start over", "new", "new job"}
 HELP = {"help", "?", "hi", "hello", "start"}
 
 HELP_TEXT = (
@@ -136,13 +137,48 @@ def _lock_for(technician: str) -> threading.Lock:
         return _locks[technician]
 
 
+# Phrases only this bot says. If they come back to us, WhatsApp's swipe-to-reply
+# has pasted our own message into the body above whatever the person typed.
+_OUR_WORDS = (
+    "Here is the quote", "Nothing has been sent yet", "Reply *SEND*",
+    "Reply SEND", "Almost there", "Quote bot", "Nothing ready to send",
+    "Scrapped.", "Sent. *", "Heads up:",
+)
+
+
+def _strip_quoted(text: str) -> str:
+    """Pull the person's own words out of a quoted reply.
+
+    Swiping to reply on WhatsApp sends the message being replied to as part of
+    the body. So a reply of SEND arrives as the whole quote card with SEND on
+    the end -- which matched no command, got handed to Claude as a correction,
+    and came back as the same card again. That loop is what Heinrich hit.
+
+    His words are the last non-empty line. Only applied when the body actually
+    contains something this bot said, so ordinary multi-line messages are safe.
+    """
+    if not any(w in text for w in _OUR_WORDS):
+        return text
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    return lines[-1] if lines else text
+
+
 def _command(text: str) -> str:
     """Normalise a one-word command. People type 'SEND', 'send.', 'Send it!'.
 
     Keeps ONLY a-z and spaces, so a zero-width space, a non-breaking space, an
     autocorrect full stop or a stray emoji cannot stop SEND from being SEND.
     """
-    return re.sub(r"[^a-z ]", "", text.lower()).strip()
+    whole = re.sub(r"[^a-z ]", "", text.lower()).strip()
+    if whole in YES or whole in NO or whole in HELP:
+        return whole
+    # Belt and braces for anything that still arrives with a quoted block on it.
+    lines = [l.strip() for l in text.splitlines() if l.strip()]
+    if len(lines) > 1:
+        last = re.sub(r"[^a-z ]", "", lines[-1].lower()).strip()
+        if last in YES or last in NO or last in HELP:
+            return last
+    return whole
 
 
 # What the bot last saw, newest first. Exposed at /quotebot/status because this
@@ -164,7 +200,7 @@ def _handle(technician: str, body: str) -> None:
 
 
 def _handle_locked(technician: str, body: str) -> None:
-    text = (body or "").strip()
+    text = _strip_quoted((body or "").strip())
     lowered = _command(text)
     draft = quotes.get_draft(technician)
     # ascii(), not !r: an invisible character shows up as ​ rather than as
@@ -186,7 +222,8 @@ def _handle_locked(technician: str, body: str) -> None:
         if lowered in NO:
             _record(number=technician, raw=safe_body, command=lowered, action="cancel")
             quotes.clear_draft(technician)
-            whatsapp.send_text(technician, "Scrapped. Nothing was sent.")
+            whatsapp.send_text(technician,
+                               "Cleared. Send me the next job when you are ready.")
             return
 
         if lowered in YES:

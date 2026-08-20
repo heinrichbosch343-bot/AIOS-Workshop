@@ -37,7 +37,7 @@ router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which
 # build Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-4 (2026-08-20, quoted-reply fix + new-job-replaces-draft)"
+BUILD = "quotebot-5 (2026-08-20, fuzzy send + on-phone debug)"
 
 EMPTY_TWIML = Response(content="<Response></Response>", media_type="application/xml")
 
@@ -45,6 +45,10 @@ YES = {"send", "yes", "y", "ja", "ok", "okay", "go", "send it", "stuur"}
 NO = {"cancel", "no", "nee", "stop", "scrap", "delete", "reset", "clear",
       "start over", "new", "new job"}
 HELP = {"help", "?", "hi", "hello", "start"}
+DEBUG = {"debug", "diag", "status", "whatswrong"}
+
+# Words that mean "send it" when a finished quote is already waiting.
+_SEND_TOKENS = {"send", "stuur", "yes", "ja", "ok", "okay", "go"}
 
 HELP_TEXT = (
     "*Quote bot*\n\n"
@@ -193,6 +197,27 @@ def _record(**row) -> None:
     del _RECENT[_RECENT_MAX:]
 
 
+def _debug_text(technician: str) -> str:
+    """The diagnostic, delivered to the phone that is having the problem.
+
+    /quotebot/status already carries this, but it needs a browser and a secret
+    key, and a technician standing on site has neither. Every bug in this bot has
+    turned on "what exactly arrived in Body?", so the answer belongs one word away.
+    """
+    mine = [r for r in _RECENT if r.get("number") == technician][:6]
+    lines = [f"*{BUILD}*", ""]
+    draft = quotes.get_draft(technician)
+    lines.append(f"Draft waiting: {'yes' if draft else 'no'}"
+                 + (f" ({quotes.fmt_money(draft['total'])})"
+                    if draft and draft.get("total") is not None else ""))
+    lines += ["", "Last messages I received:"]
+    if not mine:
+        lines.append("(none)")
+    for r in mine:
+        lines.append(f"{r['at'][11:19]}  {r.get('raw')}  ->  {r.get('action')}")
+    return "\n".join(lines)
+
+
 def _handle(technician: str, body: str) -> None:
     """All the slow work: Claude, Chromium, Twilio. Runs after the webhook returns."""
     with _lock_for(technician):
@@ -224,6 +249,22 @@ def _handle_locked(technician: str, body: str) -> None:
             quotes.clear_draft(technician)
             whatsapp.send_text(technician,
                                "Cleared. Send me the next job when you are ready.")
+            return
+
+        if lowered in DEBUG:
+            _record(number=technician, raw=safe_body, command=lowered, action="debug")
+            whatsapp.send_text(technician, _debug_text(technician))
+            return
+
+        # Catch-all. Exact matching kept failing on the live bot for reasons not
+        # reproducible locally, so: a short message containing "send" as a WORD,
+        # while a finished quote is waiting, means send it. "sending the boys
+        # round" does not match, because "sending" is not the token "send".
+        if (draft and not draft.get("missing") and len(text) <= 30
+                and _SEND_TOKENS & set(lowered.split())):
+            _record(number=technician, raw=safe_body, command=lowered,
+                    action="issue-fuzzy")
+            _issue(technician, draft)
             return
 
         if lowered in YES:

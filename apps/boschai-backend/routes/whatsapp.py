@@ -17,12 +17,14 @@ import hmac
 import os
 import re
 import threading
+from datetime import datetime, timezone
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response
 from fastapi.responses import HTMLResponse
 
 from config import (
+    API_SECRET_KEY,
     QUOTE_BOT_ENABLED,
     QUOTE_TECHNICIANS,
     WHATSAPP_VALIDATE_SIGNATURE,
@@ -32,6 +34,10 @@ from services import quotes, whatsapp
 from services.notify import send_telegram
 
 router = APIRouter()
+
+# Bumped by hand whenever this file changes, so /quotebot/status proves which
+# build Railway is actually running. Guessing at that has cost hours.
+BUILD = "quotebot-3 (2026-08-20, lock + persistence + forgiving SEND)"
 
 EMPTY_TWIML = Response(content="<Response></Response>", media_type="application/xml")
 
@@ -131,8 +137,24 @@ def _lock_for(technician: str) -> threading.Lock:
 
 
 def _command(text: str) -> str:
-    """Normalise a one-word command. People type 'SEND', 'send.', 'Send it!'."""
+    """Normalise a one-word command. People type 'SEND', 'send.', 'Send it!'.
+
+    Keeps ONLY a-z and spaces, so a zero-width space, a non-breaking space, an
+    autocorrect full stop or a stray emoji cannot stop SEND from being SEND.
+    """
     return re.sub(r"[^a-z ]", "", text.lower()).strip()
+
+
+# What the bot last saw, newest first. Exposed at /quotebot/status because this
+# runs on Railway where reading logs mid-conversation is not practical, and every
+# bug so far has come down to "what exactly arrived in Body?".
+_RECENT = []
+_RECENT_MAX = 25
+
+
+def _record(**row) -> None:
+    _RECENT.insert(0, {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **row})
+    del _RECENT[_RECENT_MAX:]
 
 
 def _handle(technician: str, body: str) -> None:
@@ -144,29 +166,42 @@ def _handle(technician: str, body: str) -> None:
 def _handle_locked(technician: str, body: str) -> None:
     text = (body or "").strip()
     lowered = _command(text)
-    print(f"[quotebot] {technician}: {text[:80]!r} -> command={lowered!r} "
-          f"draft={'yes' if quotes.get_draft(technician) else 'no'}", flush=True)
+    draft = quotes.get_draft(technician)
+    # ascii(), not !r: an invisible character shows up as ​ rather than as
+    # nothing at all, which is the whole reason this line exists -- and it can
+    # never raise UnicodeEncodeError on a non-UTF-8 stdout. That matters because
+    # this runs BEFORE the try below, so a throw here would swallow the message
+    # entirely and the technician would get silence.
+    safe_body = ascii(body)
+    print(f"[quotebot] {technician}: raw={safe_body} command={lowered!r} "
+          f"draft={'yes' if draft else 'no'}", flush=True)
 
     try:
         # `?` survives _command as an empty string, so check the raw text too.
         if not text or lowered in HELP or text in HELP:
+            _record(number=technician, raw=safe_body, command=lowered, action="help")
             whatsapp.send_text(technician, HELP_TEXT)
             return
 
-        draft = quotes.get_draft(technician)
-
         if lowered in NO:
+            _record(number=technician, raw=safe_body, command=lowered, action="cancel")
             quotes.clear_draft(technician)
             whatsapp.send_text(technician, "Scrapped. Nothing was sent.")
             return
 
         if lowered in YES:
             if not draft or draft.get("missing"):
+                _record(number=technician, raw=safe_body, command=lowered,
+                        action="send-but-no-draft", draft=bool(draft))
                 whatsapp.send_text(
                     technician, "Nothing ready to send yet. Send me the job first.")
                 return
+            _record(number=technician, raw=safe_body, command=lowered, action="issue")
             _issue(technician, draft)
             return
+
+        _record(number=technician, raw=safe_body, command=lowered,
+                action="parse", had_draft=bool(draft))
 
         # Anything else is either a new job or a correction to the one in progress.
         parsed = quotes.parse_message(text, prior=draft if draft else None)
@@ -310,6 +345,32 @@ async def inbound(request: Request, background: BackgroundTasks):
 
     background.add_task(_handle, sender, body)
     return EMPTY_TWIML
+
+
+@router.get("/quotebot/status")
+def status(key: str = ""):
+    """What build is live, how it is configured, and what it last received.
+
+    Exists because every bug so far was invisible from outside: the deployed
+    commit could not be confirmed, and the exact `Body` Twilio posted could not
+    be seen. Guarded by API_SECRET_KEY -- it exposes phone numbers and message
+    text, which is the point and also why it is not open.
+    """
+    if not API_SECRET_KEY or key != API_SECRET_KEY:
+        return Response(status_code=403)
+    return {
+        "build": BUILD,
+        "enabled": QUOTE_BOT_ENABLED,
+        "technicians": QUOTE_TECHNICIANS or "(anyone - allowlist empty)",
+        "signature_check": WHATSAPP_VALIDATE_SIGNATURE,
+        "sender": os.getenv("TWILIO_WHATSAPP_FROM", "(unset)"),
+        "base_url": public_base_url(),
+        "yes_words": sorted(YES),
+        "drafts_in_memory": sorted(quotes.DRAFTS),
+        "draft_persistence": quotes._drafts_table_ok,
+        "issued_this_boot": len(quotes.ISSUED),
+        "recent": _RECENT,
+    }
 
 
 @router.get("/q/{token}.pdf")

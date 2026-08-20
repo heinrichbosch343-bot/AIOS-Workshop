@@ -19,6 +19,7 @@ from routes.email_drip import router as email_drip_router
 from routes.brief import router as brief_router
 from routes.research import router as research_router
 from routes.knowledge import router as knowledge_router
+from routes.whatsapp import router as whatsapp_router
 
 
 # The Telegram bot + scheduler run ONLY on the Railway 24/7 host. We detect Railway via
@@ -80,6 +81,7 @@ app.include_router(email_drip_router)
 app.include_router(brief_router)
 app.include_router(research_router)
 app.include_router(knowledge_router)
+app.include_router(whatsapp_router)
 
 
 @app.get("/health")

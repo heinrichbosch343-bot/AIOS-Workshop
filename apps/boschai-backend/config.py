@@ -91,7 +91,57 @@ LINKEDIN_SCHEDULER_ENABLED = os.environ.get("LINKEDIN_SCHEDULER_ENABLED", "0") =
 EMAIL_DRIP_ENABLED = os.environ.get("EMAIL_DRIP_ENABLED", "0") == "1"
 EMAIL_DRIP_DAILY_CAP = int(os.environ.get("EMAIL_DRIP_DAILY_CAP", "25"))
 
+# === BoschAI: Drip auto-reply — BEGIN ===
+# DRIP_AUTOREPLY_ENABLED: set to "1" to let the drip responder ANSWER prospect
+# replies automatically (one auto-reply per thread, then the thread is Heinrich's).
+# Off by default: replies are still detected, classified, logged and pinged to
+# Telegram — they're just never auto-answered until this is flipped.
+DRIP_AUTOREPLY_ENABLED = os.environ.get("DRIP_AUTOREPLY_ENABLED", "0") == "1"
+DRIP_AUTOREPLY_DAILY_CAP = int(os.environ.get("DRIP_AUTOREPLY_DAILY_CAP", "10"))
+DRIP_AUTOREPLY_KILL_SWITCH = os.environ.get("DRIP_AUTOREPLY_KILL_SWITCH", "false").lower() in ("true", "1", "yes")
+# === BoschAI: Drip auto-reply — END ===
+
 # DAILY_BRIEF_ENABLED: set to "1" to send the 06:00 SAST morning brief.
 # Paused at Heinrich's request 2026-07-02; the /dailybrief Telegram command
 # still fires a brief on demand while this is off.
 DAILY_BRIEF_ENABLED = os.environ.get("DAILY_BRIEF_ENABLED", "0") == "1"
+
+# === BoschAI: Recurring invoicing — BEGIN ===
+# INVOICE_AUTOSEND_ENABLED: set to "1" to let the invoicing job email invoices
+# straight to clients. Off by default: due invoices are still generated (PDF +
+# Gmail draft + Telegram ping) every day, they just aren't sent until this is
+# flipped, mirroring EMAIL_DRIP_ENABLED / DRIP_AUTOREPLY_ENABLED above.
+INVOICE_AUTOSEND_ENABLED = os.environ.get("INVOICE_AUTOSEND_ENABLED", "0") == "1"
+# === BoschAI: Recurring invoicing — END ===
+
+# === BoschAI: WhatsApp quote bot — BEGIN ===
+# A technician messages the bot from site, it writes the quote up, he replies SEND
+# and the customer gets a numbered PDF. Off by default, like every other sender here.
+QUOTE_BOT_ENABLED = os.environ.get("QUOTE_BOT_ENABLED", "0") == "1"
+
+# Which WhatsApp numbers may issue quotes, comma separated, E.164 (+27821234567).
+# EMPTY MEANS ANYONE who can reach the number — fine for a sandbox demo where only
+# joined phones get through, wrong the moment this points at a real business.
+QUOTE_TECHNICIANS = [s.strip() for s in os.environ.get("QUOTE_TECHNICIANS", "").split(",") if s.strip()]
+
+# Verify Twilio's X-Twilio-Signature on every webhook. Without it the endpoint is an
+# open megaphone: anyone who finds the URL can make us send WhatsApp messages on our
+# bill. Only ever turn this off against a local tunnel.
+WHATSAPP_VALIDATE_SIGNATURE = os.environ.get("WHATSAPP_VALIDATE_SIGNATURE", "1") == "1"
+
+
+def public_base_url() -> str:
+    """Where this backend is reachable from the internet, with no trailing slash.
+
+    Twilio fetches quote PDFs from here and signs webhooks against it, so it has to
+    be the real external URL — localhost will not do. Railway injects its own domain;
+    PUBLIC_BASE_URL overrides for anything else.
+    """
+    explicit = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if explicit:
+        return explicit
+    railway = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+    if railway:
+        return f"https://{railway}"
+    return "http://localhost:8000"
+# === BoschAI: WhatsApp quote bot — END ===

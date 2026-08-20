@@ -1,0 +1,30 @@
+{
+  "_comment": "Everything the quote document says about the business. Edit here, never in code — same convention as outputs/crm/offers.json and voice-scripts.json. Swapping this file is how the same system serves a different client.",
+  "name": "FIXITT Glass & Aluminium",
+  "tagline": "Glass and aluminium, 24 hours a day, 365 days a year",
+  "address_lines": [
+    "Unit 8, Esvian Industrial Park",
+    "98D Bofors Circle, Epping 2",
+    "Cape Town, 7475"
+  ],
+  "phone": "087 153 6444",
+  "email": "zaheer@fixittglass.co.za",
+  "website": "fixittglass.co.za",
+  "quote_prefix": "FQ",
+  "validity_days": 30,
+  "currency": "ZAR",
+  "_vat_note": "Left off until Zaheer confirms. Set vat_registered true and fill vat_number, and prices are then treated as VAT-inclusive. Never invent a VAT number.",
+  "vat_registered": false,
+  "vat_number": "",
+  "promises": [
+    "Two-year guarantee on spares and workmanship.",
+    "We will beat any written quote by 5%.",
+    "Emergency callouts answered 24 hours a day, 365 days a year."
+  ],
+  "terms": "Quote valid for {validity_days} days from the date of issue. Prices assume access to the opening as inspected on site. Any additional work found on the day will be quoted separately before it is carried out.",
+  "accept_line": "To accept, simply reply to this message and we will book the installation.",
+  "_technicians_note": "WhatsApp number -> the name printed under 'Quoted by'. Anyone not listed still works (unless QUOTE_TECHNICIANS restricts it); their number is printed instead.",
+  "technicians": {
+    "+27712824797": "Heinrich Bosch"
+  }
+}

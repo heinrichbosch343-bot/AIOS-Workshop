@@ -1,134 +1,146 @@
 # The WhatsApp quote bot
 
-A technician finishes a site visit and messages a WhatsApp number in whatever words
-come out. It writes the quote up, shows him, and on **SEND** the customer has a
-numbered PDF on their phone about ten seconds later.
+A technician finishes a job, WhatsApps it to a bot number in whatever words come out,
+and the customer has a numbered, branded PDF quote on their phone about ten seconds
+later.
 
-Built for **FIXITT Glass & Aluminium** (Zaheer Omarjee, Cape Town). Their own reviews
-say the diagnosis out loud: 13 of 20 negative reviews are *inspection done, quote never
-arrived* — eight days, two weeks, four weeks of chasing. The phones are fine; Zaheer
-told us so and the reviews agree. What fails is the handoff after the phone. The person
-who knows the price drives away and the number has to survive a queue and a department
-before it reaches the customer who was standing right there.
-
-So: **quote at the kerb, not at the office.**
+Built for **FIXITT Glass & Aluminium** off the review-mining diagnosis: 13 of 20 of
+their negative reviews are *inspection done, quote never arrived*. Their phones are
+fine — Zaheer said so and the reviews agree. What fails is the handoff after the
+phone. So the thesis is **quote at the kerb, not at the office**.
 
 ---
 
-## The flow
+## What it looks like
 
 ```
-technician  ──►  bot number  ──►  Claude parses  ──►  confirmation back to him
-                                                              │
-                                                      he replies SEND
-                                                              │
-                                     PDF rendered  ──►  customer's WhatsApp
-                                                              │
-                                                      Telegram ping to the office
+HIM   Sarah Adams 082 555 1234 sarah@gmail.com - 2 sliding panels lounge,
+      6.38 laminated, replace both tracks, R11 500
+
+BOT   Got it.
+
+      *Sarah Adams*
+      082 555 1234 · sarah@gmail.com
+
+      • 2 x sliding panels, lounge — 6.38 laminated safety glass
+      • Replace both bottom tracks and rollers
+      *Total: R 11 500.00*
+
+      Send it?
+
+HIM   ja stuur dit
+
+BOT   Sent ✓
+
+      *FQ-2026-001* · R 11 500.00
+      → WhatsApp to 082 555 1234 ✓
+      → Email to sarah@gmail.com ✓
 ```
 
-Two rules hold it up:
+If something is missing it asks in its own words. It can be corrected ("make it
+12500"), asked questions ("what's the total again?"), told to scrap it, or handed a
+completely different job mid-conversation.
 
-1. **Nothing sends without SEND.** The parse is always a draft. A mistyped digit
-   posts a customer's quote to a stranger, so a human confirms every time.
-2. **Every reply goes out through the REST API from a background task**, never as
-   TwiML. Twilio times a webhook out at 15 seconds and a Chromium render can outlast
-   that.
+The customer gets a branded message with the PDF attached, and when they reply the
+technician and Telegram both hear about it — `accepted_at` gets stamped on a yes.
+**A quote nobody chased is the failure this exists to remove, so the loop closes.**
 
-## What he can send
+---
 
-Anything. Wrong order, abbreviations, mixed English and Afrikaans, no punctuation:
+## The one rule that matters
 
-> Sarah Adams, 082 555 1234, sarah@gmail.com - 2 slidin panels lounge 1.8x2.1 6.38 lam,
-> replace both tracks, 11.5k incl labour
+**The model understands and speaks. The code decides and sends.**
 
-Trade shorthand gets expanded into something a customer can read, and every measurement
-and spec is kept exactly as given. Specs are never invented.
+The model reads the thread, works out what he meant, merges the facts, and writes the
+sentence he gets back. It is never asked to type a price, a total or a quote number —
+code renders those underneath its words, from the stored job, so the figures on his
+phone are the figures on the PDF by construction.
 
-**Corrections are just messages.** "make it 12500" or "her number is 083 not 082" —
-the draft updates and he gets a fresh confirmation. **CANCEL** scraps it.
+It also cannot cause a send. It returns `action: "send"`; `quote_engine` then checks
+the job is complete, that the number can actually receive WhatsApp, and that he has
+**seen the card**. A first message ending in "…and send it now" still gets shown to
+him first. That step is what stops a mistyped digit putting one person's quote on a
+stranger's phone.
 
-## Guard rails
-
-| Guard | Why |
-|---|---|
-| Twilio signature checked on every webhook | Without it the endpoint is an open megaphone that sends WhatsApps on our bill |
-| `QUOTE_TECHNICIANS` allowlist | Only approved numbers may issue quotes on the company's letterhead |
-| Non-mobile numbers refused | Only 06x, 07x, 081–084 reach WhatsApp. 086/087 are share-call numbers that look mobile and **fail silently** — FIXITT's own glass line is an 087 |
-| Never invents a price or a spec | Missing means missing; he gets asked |
-| PDF failure degrades to a link | The quote still goes out if Chromium is unavailable |
+---
 
 ## Files
 
-| File | What it does |
+| File | |
 |---|---|
-| `routes/whatsapp.py` | Webhook, the SEND/CANCEL state machine, serves `/q/{token}` and `/q/{token}.pdf` |
-| `services/quotes.py` | Claude parse, phone rules, numbering, HTML and PDF render, in-memory store |
-| `services/whatsapp.py` | Twilio send, with the errors that actually happen named |
-| `templates/quote.html` | The document |
-| `quote_business.json` | **All the copy and business details.** Edit here, never in code |
-| `db/migrations/013_quotes.sql` | The quote log. Not needed for the demo, required before go-live |
+| `routes/whatsapp.py` | HTTP edge: webhook, signature, idempotency, routing, public quote URLs |
+| `services/quote_engine.py` | The conversation: the model call, the state machine, issuing |
+| `services/quote_doc.py` | The PDF (fpdf2), the web page, and every word the customer reads |
+| `services/quote_store.py` | All Supabase access — sessions, messages, quotes |
+| `services/quote_selftest.py` | 13 real technician messages, run against the real model |
+| `services/whatsapp.py` | Twilio send, with the error codes worth naming |
+| `quote_business.json` | **All copy and business detail. Edit here, never in code.** |
+| `db/migrations/014_quote_bot.sql` | The schema. Not optional. |
 
-## Environment
+---
 
-```
-TWILIO_ACCOUNT_SID=…
-TWILIO_AUTH_TOKEN=…
-TWILIO_WHATSAPP_FROM=whatsapp:+14155238886   # the sandbox number
-QUOTE_BOT_ENABLED=1                          # off by default, like every sender here
-QUOTE_TECHNICIANS=+27712824797               # empty = anyone who can reach it
-PUBLIC_BASE_URL=                             # optional; Railway's domain is used otherwise
-WHATSAPP_VALIDATE_SIGNATURE=1                # only ever 0 against a local tunnel
-QUOTE_PARSING_MODEL=                         # optional; defaults to claude-sonnet-4-6
-```
+## Why it is built this way
 
-## Setting up the demo
+**State is in Postgres, not in memory.** The first build kept the in-progress quote in
+a module-level dict. Railway restarts the web process on every deploy, so a quote he
+was looking at had already stopped existing when he replied SEND.
 
-1. Twilio Console → **Messaging → Try it out → Send a WhatsApp message**
-2. Send the `join <code>` message from **both** phones — the technician and the customer
-3. Set the env vars above on Railway and deploy
-4. Same Twilio page → **Sandbox settings** → *When a message comes in*:
-   `https://<railway-url>/webhook/whatsapp`, method **POST**
-5. Message the bot from the technician phone
+**Every message is logged with Twilio's `MessageSid`, which is UNIQUE.** A redelivery
+inserts zero rows and the turn stops. That removes double-sends and reply loops as a
+category rather than as a series of bugs.
 
-**Sandbox membership lapses after 72 hours idle.** Re-send the join code before filming.
+**The PDF is fpdf2, not headless Chromium.** Pure Python, installs from
+requirements.txt, renders in ~30ms, no system packages, no `nixpacks.toml`, nothing to
+prove on a deploy. It is regenerated on demand from the stored row, so there are no
+blobs to keep and the document can never drift from the record.
 
-The sandbox has no templates, so everything is free-form, which means the customer's
-24-hour window must be open — joining opens one. If a send fails with code 63016, have
-that phone message the sandbox again.
+**Never return a shared `Response` object from a route that uses background tasks.**
+This one cost days. FastAPI attaches background tasks to a returned Response only
+`if response.background is None`. A module-level `EMPTY_TWIML = Response(...)` was
+claimed by the first request and never released, so **every subsequent message re-ran
+the first message's handler and dropped its own.** On a phone that looks like a bot
+answering something you sent ten minutes ago and ignoring what you just typed. See
+`_ack()` in `routes/whatsapp.py`.
 
-## Going to production
+---
 
-The sandbox cannot touch a real customer. Production needs a Meta Business account,
-business verification against FIXITT's CIPC documents, an approved display name, a
-dedicated number **that is not on WhatsApp**, and one approved utility template. That
-queue can run from a day to several weeks, so it starts on day one of the project.
+## Setting it up
 
-Full walkthrough: `claude-vault/modules/review-booster/reference/whatsapp-setup.md`.
+1. **Run `db/migrations/014_quote_bot.sql`** in the Supabase SQL editor. The bot's
+   memory *is* that schema — this is not optional.
+2. **Railway env:** `QUOTE_BOT_ENABLED=1`, `QUOTE_TECHNICIANS=+27712824797`,
+   plus the three `TWILIO_*` values. See `.env.example`.
+3. **Twilio:** point the sandbox's "When a message comes in" at
+   `https://<host>/webhook/whatsapp`, method POST.
+4. **Every phone in the demo must join the sandbox** — send the join code from it
+   once. The sandbox silently refuses numbers that have not. No code can work around
+   this.
 
-**The number is a one-way door.** Whatever number becomes the API sender is removed
-from the WhatsApp Business app and its chat history is lost. Never use FIXITT's
-published line. A fresh number is also the free gift we already owe them, since their
-087 cannot receive WhatsApp at all.
+### Checking it works, without messaging anybody
 
-## Known limits
+| | |
+|---|---|
+| `GET /quotebot/status?key=…` | The live build string, the config, whether each table exists, and the last 25 messages |
+| `GET /quotebot/selftest?key=…` | Puts 13 real technician messages through the real model and reports what it made of each. Costs a few cents. Sends nothing. |
 
-- **Issued quotes live in memory** and die on redeploy, so an old quote link can
-  404. Drafts are persisted to `quote_drafts` (migration 013) and fall back to
-  memory if that table is absent -- run the migration and an in-progress quote
-  survives a Railway restart.
-- **Messages from one technician are serialised** by a per-number lock. Without it,
-  SEND typed a second after the job races the Claude parse still writing the draft,
-  and he gets "nothing to send" for a quote he is looking at. This actually happened
-  on the first live test (20 Aug). Different technicians never block each other.
-- **VAT is off** until Zaheer confirms whether they are registered. Never invent a
-  VAT number — set `vat_registered` and `vat_number` in `quote_business.json`.
-- **No email copy yet.** Deliberate: the only mail sender wired up is Heinrich's own
-  Gmail, and a FIXITT quote should not arrive from it. Insurance and landlord
-  forwarding both want email, so this is the first thing to add for production.
-- **Voice notes are not handled.** Typed only. Voice is the better product — a
-  technician in the sun with dirty hands will not type — but it is three moving parts
-  instead of one, so it comes after the loop is proven.
-- **Only covers jobs priced on site.** Fabricated shopfronts that need supplier
-  pricing still go back to the office. Say that limit to Zaheer before he says it
-  to you; the win is still real, because silence is what his reviewers are angry about.
+Both are guarded by `API_SECRET_KEY` because they expose phone numbers and message
+text.
+
+---
+
+## Standing constraints
+
+- **Never register FIXITT's published number to the API.** It is a one-way door: the
+  number leaves the WhatsApp Business app permanently. Use a fresh line.
+- **Only 06x, 07x and 081–084 receive WhatsApp.** 086 and 087 look like mobiles and
+  fail silently. The bot refuses them by name before sending, rather than reporting it
+  afterwards.
+- **Nothing sends without a human approving it.** Not a setting — a state machine.
+- **Never invent a VAT number.** `vat_registered` is false until Zaheer confirms, and
+  the document then says nothing about VAT at all rather than implying either way.
+- The demo runs on the **Twilio sandbox**: no Meta verification, both phones must
+  join, and membership lapses after 72h idle. Production needs business verification,
+  a dedicated number, and an approved utility template for anything sent outside the
+  24-hour window.
+- Email currently sends from the connected Boschly mailbox, not FIXITT's. A real
+  install points it at theirs.

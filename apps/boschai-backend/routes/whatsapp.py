@@ -1,23 +1,22 @@
-"""The WhatsApp quote bot.
+"""The WhatsApp quote bot: the HTTP edge.
 
-A technician finishes a site visit, messages this number in whatever words come out,
-and gets back a tidy summary. He replies SEND and the customer has a numbered PDF
-quote on their phone about ten seconds later.
+Everything here is plumbing — parse the form, prove it came from Twilio, refuse a
+message we have already handled, work out who is talking, hand off. The thinking lives
+in services/quote_engine.py and the document in services/quote_doc.py.
 
-Two ideas hold the whole thing up:
+Two rules hold this edge up:
 
-1. Nothing sends without SEND. The parse is a draft and a human confirms it, because
-   a mistyped digit posts a customer's quote to a stranger.
-2. Every reply goes out through the REST API from a background task, never as TwiML.
-   Twilio times a webhook out at 15 seconds and a Chromium render can outlast that.
+1. Answer Twilio immediately. It times a webhook out at 15 seconds, and a model call
+   plus a render plus two sends can outlast that. Every reply goes back out through
+   the REST API from a background task, never as TwiML.
+2. Never act on the same MessageSid twice. Twilio redelivers on timeout, and a
+   redelivered approval is a second quote on a customer's phone.
 """
 import base64
 import hashlib
 import hmac
 import os
-import re
 import threading
-from datetime import datetime, timezone
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response
@@ -30,369 +29,118 @@ from config import (
     WHATSAPP_VALIDATE_SIGNATURE,
     public_base_url,
 )
-from services import quotes, whatsapp
-from services.notify import send_telegram
+from services import quote_doc as doc
+from services import quote_engine as engine
+from services import quote_store as store
 
 router = APIRouter()
 
-# Bumped by hand whenever this file changes, so /quotebot/status proves which
-# build Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-6 (2026-08-20, model decides intent; sid tracing)"
-
-EMPTY_TWIML = Response(content="<Response></Response>", media_type="application/xml")
-
-YES = {"send", "yes", "y", "ja", "ok", "okay", "go", "send it", "stuur"}
-NO = {"cancel", "no", "nee", "stop", "scrap", "delete", "reset", "clear",
-      "start over", "new", "new job"}
-HELP = {"help", "?", "hi", "hello", "start"}
-DEBUG = {"debug", "diag", "status", "whatswrong"}
-
-# Words that mean "send it" when a finished quote is already waiting.
-_SEND_TOKENS = {"send", "stuur", "yes", "ja", "ok", "okay", "go"}
-
-HELP_TEXT = (
-    "*Quote bot*\n\n"
-    "Send me the job as you would say it out loud. For example:\n\n"
-    "_Sarah Adams, 082 555 1234, sarah@gmail.com - 2 sliding panels lounge "
-    "1.8x2.1, 6.38 laminated, replace both tracks, R11 500 incl labour_\n\n"
-    "I will write it up and show you before anything goes out. "
-    "Reply *SEND* to send it, or just tell me what to change."
-)
+# Bumped by hand whenever this file changes, so /quotebot/status proves which build
+# Railway is actually running. Guessing at that has cost hours.
+BUILD = "quotebot-7 (2026-08-20, rebuilt: postgres state, model conversation, fpdf2)"
 
 
-# ------------------------------------------------------------------ security
+def _ack() -> Response:
+    """An empty TwiML acknowledgement — a NEW object every single time.
 
-def _valid_signature(request: Request, form: dict, body_url: str) -> bool:
-    """Twilio signs every webhook: HMAC-SHA1 over the full URL plus the sorted
-    POST params, keyed on the auth token. Without this the endpoint is an open
-    megaphone that sends WhatsApps on demand, billed to us."""
+    This was the bug that ate three days. It used to be one module-level Response
+    reused by every request, which looks harmless and is not: FastAPI attaches the
+    request's background tasks to a returned Response only `if response.background
+    is None`. The first request set that field, and from then on it was never None
+    again — so every later message re-ran the FIRST message's background task and
+    its own was silently dropped.
+
+    On a phone that looks exactly like what Heinrich saw. The bot answers a message
+    he sent ten minutes ago, ignores what he just typed, and SEND never works. It
+    also explains the debug screen showing the same body three times: the body really
+    was being handled three times.
+
+    Never return a shared Response instance from a route with background work.
+    """
+    return Response(content="<Response></Response>", media_type="application/xml")
+
+
+NOT_FOR_YOU = ("Thanks for the message. This number only handles quotes for our own "
+               "team — please call the office and we'll help you straight away.")
+
+
+# ────────────────────────────────────────────────────────────────────── security
+
+def _valid_signature(request: Request, form: dict, url: str) -> bool:
+    """Twilio signs every webhook: HMAC-SHA1 over the full URL plus the sorted POST
+    params, keyed on the auth token. Without this the endpoint is an open megaphone
+    that sends WhatsApp messages on demand, billed to us."""
     signature = request.headers.get("X-Twilio-Signature", "")
     token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
     if not signature or not token:
         return False
-    payload = body_url + "".join(k + str(form[k]) for k in sorted(form))
+    payload = url + "".join(k + str(form[k]) for k in sorted(form))
     digest = hmac.new(token.encode(), payload.encode("utf-8"), hashlib.sha1).digest()
     return hmac.compare_digest(base64.b64encode(digest).decode(), signature)
 
 
-def _authorised(number: str) -> bool:
-    """Empty allowlist means demo mode: anyone who can reach the sandbox may quote.
-    Set QUOTE_TECHNICIANS before this touches a real business."""
-    if not QUOTE_TECHNICIANS:
-        return True
+def _is_technician(number: str) -> bool:
     return number in QUOTE_TECHNICIANS
 
 
-# ------------------------------------------------------------- message shapes
-
-def _confirmation(draft: dict) -> str:
-    lines = ["Here is the quote. Nothing has been sent yet.", ""]
-    for item in draft["line_items"]:
-        amount = (quotes.fmt_money(item["amount"])
-                  if item.get("amount") is not None else "")
-        lines.append(f"- {item['description']}" + (f"  _{amount}_" if amount else ""))
-    lines += [
-        "",
-        f"*Total: {quotes.fmt_money(draft['total'])}*",
-        "",
-        f"To: {draft['customer_name']} on "
-        f"{quotes.display_phone(draft['customer_phone_e164'])}",
-    ]
-    if draft.get("customer_email"):
-        lines.append(f"Email: {draft['customer_email']}")
-    lines += ["", "Reply *SEND* to send it, or tell me what to fix."]
-    return "\n".join(lines)
-
-
-def _why_no_whatsapp(e164: str) -> str:
-    """Name the actual reason, because 'that number will not work' invites an argument
-    and 'that is a share-call number' ends one."""
-    national = e164[3:] if e164.startswith("+27") else ""
-    if national.startswith(("86", "87")):
-        return "086 and 087 are share-call numbers, not mobiles"
-    if national[:1] in ("1", "2", "3", "4", "5"):
-        return "that is a landline"
-    return "it is not a South African mobile"
-
-
-def _needs_more(draft: dict) -> str:
-    missing = ", ".join(draft["missing"])
-    return (f"Almost there - I still need {missing}.\n\n"
-            "Just send it and I will add it to what you already gave me.")
-
-
-# ---------------------------------------------------------------- the worker
+# ──────────────────────────────────────────────────────────────────── the worker
 
 _locks_guard = threading.Lock()
 _locks = {}
 
 
-def _lock_for(technician: str) -> threading.Lock:
-    """One lock per technician, so his messages are handled in the order he sent them.
-
-    Without this, SEND typed a second after the job races the Claude parse that is
-    still writing the draft: get_draft() returns nothing and he is told there is
-    nothing to send, for a quote he is looking at. Different technicians never
-    block each other.
-    """
+def _lock_for(number: str) -> threading.Lock:
+    """One lock per phone, so a person's messages are handled in the order they were
+    sent. Two messages a second apart otherwise race each other through the session
+    read-modify-write, and the later one wins carrying stale facts."""
     with _locks_guard:
-        if technician not in _locks:
-            _locks[technician] = threading.Lock()
-        return _locks[technician]
+        if number not in _locks:
+            _locks[number] = threading.Lock()
+        return _locks[number]
 
 
-# Phrases only this bot says. If they come back to us, WhatsApp's swipe-to-reply
-# has pasted our own message into the body above whatever the person typed.
-_OUR_WORDS = (
-    "Here is the quote", "Nothing has been sent yet", "Reply *SEND*",
-    "Reply SEND", "Almost there", "Quote bot", "Nothing ready to send",
-    "Scrapped.", "Sent. *", "Heads up:",
-)
+def _dispatch(sender: str, body: str, message_sid: str) -> None:
+    """Work out who this is, and hand them to the right half of the engine.
 
-
-def _strip_quoted(text: str) -> str:
-    """Pull the person's own words out of a quoted reply.
-
-    Swiping to reply on WhatsApp sends the message being replied to as part of
-    the body. So a reply of SEND arrives as the whole quote card with SEND on
-    the end -- which matched no command, got handed to Claude as a correction,
-    and came back as the same card again. That loop is what Heinrich hit.
-
-    His words are the last non-empty line. Only applied when the body actually
-    contains something this bot said, so ordinary multi-line messages are safe.
+    Routing is by DATA first, not by config: anyone holding a recent quote from us is
+    a customer replying, whatever the allowlist says. That is what closes the loop even
+    in demo mode, where the allowlist is empty.
     """
-    if not any(w in text for w in _OUR_WORDS):
-        return text
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
-    return lines[-1] if lines else text
-
-
-def _command(text: str) -> str:
-    """Normalise a one-word command. People type 'SEND', 'send.', 'Send it!'.
-
-    Keeps ONLY a-z and spaces, so a zero-width space, a non-breaking space, an
-    autocorrect full stop or a stray emoji cannot stop SEND from being SEND.
-    """
-    whole = re.sub(r"[^a-z ]", "", text.lower()).strip()
-    if whole in YES or whole in NO or whole in HELP:
-        return whole
-    # Belt and braces for anything that still arrives with a quoted block on it.
-    lines = [l.strip() for l in text.splitlines() if l.strip()]
-    if len(lines) > 1:
-        last = re.sub(r"[^a-z ]", "", lines[-1].lower()).strip()
-        if last in YES or last in NO or last in HELP:
-            return last
-    return whole
-
-
-# What the bot last saw, newest first. Exposed at /quotebot/status because this
-# runs on Railway where reading logs mid-conversation is not practical, and every
-# bug so far has come down to "what exactly arrived in Body?".
-_RECENT = []
-_RECENT_MAX = 25
-
-
-def _record(**row) -> None:
-    _RECENT.insert(0, {"at": datetime.now(timezone.utc).isoformat(timespec="seconds"), **row})
-    del _RECENT[_RECENT_MAX:]
-
-
-def _debug_text(technician: str) -> str:
-    """The diagnostic, delivered to the phone that is having the problem.
-
-    /quotebot/status already carries this, but it needs a browser and a secret
-    key, and a technician standing on site has neither. Every bug in this bot has
-    turned on "what exactly arrived in Body?", so the answer belongs one word away.
-    """
-    mine = [r for r in _RECENT if r.get("number") == technician][:6]
-    lines = [f"*{BUILD}*", ""]
-    draft = quotes.get_draft(technician)
-    lines.append(f"Draft waiting: {'yes' if draft else 'no'}"
-                 + (f" ({quotes.fmt_money(draft['total'])})"
-                    if draft and draft.get("total") is not None else ""))
-    lines += ["", "Last messages I received:"]
-    if not mine:
-        lines.append("(none)")
-    for r in mine:
-        sid = f" #{r['sid']}" if r.get("sid") else ""
-        lines.append(f"{r['at'][11:19]}{sid}  {r.get('raw')}  ->  {r.get('action')}")
-    return "\n".join(lines)
-
-
-def _handle(technician: str, body: str) -> None:
-    """All the slow work: Claude, Chromium, Twilio. Runs after the webhook returns."""
-    with _lock_for(technician):
-        _handle_locked(technician, body)
-
-
-def _handle_locked(technician: str, body: str) -> None:
-    text = _strip_quoted((body or "").strip())
-    lowered = _command(text)
-    draft = quotes.get_draft(technician)
-    # ascii(), not !r: an invisible character shows up as ​ rather than as
-    # nothing at all, which is the whole reason this line exists -- and it can
-    # never raise UnicodeEncodeError on a non-UTF-8 stdout. That matters because
-    # this runs BEFORE the try below, so a throw here would swallow the message
-    # entirely and the technician would get silence.
-    safe_body = ascii(body)
-    print(f"[quotebot] {technician}: raw={safe_body} command={lowered!r} "
-          f"draft={'yes' if draft else 'no'}", flush=True)
-
-    try:
-        # `debug` stays a hard-coded keyword on purpose: it has to work even when
-        # the model call is what is broken.
-        if lowered in DEBUG:
-            _record(number=technician, raw=safe_body, command=lowered, action="debug")
-            whatsapp.send_text(technician, _debug_text(technician))
-            return
-
-        if not text:
-            _record(number=technician, raw=safe_body, command=lowered, action="empty")
-            whatsapp.send_text(technician, HELP_TEXT)
-            return
-
-        # Everything else is a judgement call, made once, with the quote on the
-        # table as context. Keyword matching used to live here and kept failing
-        # on inputs that could not be reproduced locally.
-        read = quotes.interpret(text, draft)
-        intent = read["intent"]
-        _record(number=technician, raw=safe_body, command=lowered,
-                action=intent, had_draft=bool(draft))
-
-        if intent == "help":
-            whatsapp.send_text(technician, HELP_TEXT)
-            return
-
-        if intent == "answer":
-            whatsapp.send_text(
-                technician, read.get("reply") or "Not sure what you mean there.")
-            return
-
-        if intent == "cancel":
-            quotes.clear_draft(technician)
-            whatsapp.send_text(technician,
-                               "Cleared. Send me the next job when you are ready.")
-            return
-
-        if intent == "send":
-            if not draft or draft.get("missing"):
-                whatsapp.send_text(
-                    technician, "Nothing ready to send yet. Send me the job first.")
-                return
-            _issue(technician, draft)
-            return
-
-        # new_job or adjust
-        quote = read.get("quote")
-        if not quote:
-            whatsapp.send_text(technician, HELP_TEXT)
-            return
-        quotes.save_draft(technician, quote)
-
-        if quote["missing"]:
-            whatsapp.send_text(technician, _needs_more(quote))
-            return
-
-        if not quotes.is_whatsapp_capable(quote["customer_phone_e164"]):
-            whatsapp.send_text(
-                technician,
-                f"Heads up: {quote['customer_phone_e164']} cannot receive WhatsApp - "
-                f"{_why_no_whatsapp(quote['customer_phone_e164'])}. It would fail "
-                "silently, so nobody would know. Send me a mobile number for them "
-                "(06, 07, 081-084), or reply SEND and I will give you a link to pass on.")
-            return
-
-        whatsapp.send_text(technician, _confirmation(quote))
-
-    except whatsapp.WhatsAppError as exc:
-        print(f"[quotebot] whatsapp error for {technician}: {exc}", flush=True)
-    except Exception as exc:
-        print(f"[quotebot] failed for {technician}: {exc}", flush=True)
+    with _lock_for(sender):
         try:
-            whatsapp.send_text(
-                technician, "Something went wrong on my side. Try sending that again.")
-        except Exception:
-            pass
+            if _is_technician(sender):
+                engine.handle_technician(sender, body, message_sid)
+                return
+
+            quote = store.latest_quote_for_phone(sender)
+            if quote:
+                engine.handle_customer(sender, body, quote, message_sid)
+                return
+
+            if not QUOTE_TECHNICIANS:
+                # Demo mode: no allowlist set, so anyone reaching the sandbox may quote.
+                engine.handle_technician(sender, body, message_sid)
+                return
+
+            engine.say(sender, NOT_FOR_YOU)
+        except Exception as exc:
+            print(f"[quotebot] dispatch failed for {sender}: {exc}", flush=True)
+            try:
+                engine.say(sender, "Something went wrong on my side. Send that again?")
+            except Exception:
+                pass
 
 
-def _issue(technician: str, draft: dict) -> None:
-    """Number it, render it, send it to the customer, tell the office."""
-    import asyncio
-
-    biz = quotes.business()
-    today = quotes.today()
-    quote = dict(draft)
-    quote["quote_number"] = quotes.next_quote_number(biz.get("quote_prefix", "Q"), today)
-    quote["issued_date"] = today.isoformat()
-    quote["quoted_by"] = quotes.technician_name(technician)
-    quote["customer_phone"] = draft["customer_phone_e164"]
-
-    html = quotes.render_html(quote)
-    token = quotes.new_token()
-
-    pdf = None
-    try:
-        pdf = asyncio.run(quotes.html_to_pdf(html))
-    except Exception as exc:
-        # Chromium missing on the host. The quote still goes out, as a link.
-        print(f"[quotebot] PDF render failed, falling back to link: {exc}", flush=True)
-
-    quotes.store_issued(token, {"html": html, "pdf": pdf,
-                                "quote_number": quote["quote_number"]})
-
-    base = public_base_url()
-    link = f"{base}/q/{token}"
-    number = quote["quote_number"]
-    total = quotes.fmt_money(quote["total"])
-
-    customer_msg = (
-        f"Hi {quote['customer_name']}, thanks for having us out today.\n\n"
-        f"Here is your quote from {biz['name']} - *{number}*, total *{total}*.\n\n"
-        f"{biz.get('accept_line', '')}\n\n{link}"
-    )
-
-    to = quote["customer_phone"]
-    try:
-        if pdf:
-            whatsapp.send_media(to, customer_msg, f"{base}/q/{token}.pdf")
-        else:
-            whatsapp.send_text(to, customer_msg)
-    except whatsapp.WhatsAppError as exc:
-        # The draft is deliberately KEPT so he can retry SEND once the cause is
-        # fixed, rather than retyping the whole job.
-        print(f"[quotebot] delivery to {to} failed: {exc}", flush=True)
-        whatsapp.send_text(
-            technician,
-            f"The quote is ready ({number}, {total}) but it would not deliver to "
-            f"{quotes.display_phone(to)}.\n\n{exc}\n\nHere it is either way - "
-            f"you can forward this link:\n{link}\n\nFix that and reply *SEND* again.")
-        return
-
-    quotes.clear_draft(technician)
-    whatsapp.send_text(
-        technician,
-        f"Sent. *{number}* for {total} is on {quote['customer_name']}'s phone.\n\n{link}")
-
-    try:
-        send_telegram(
-            f"\U0001f4c4 Quote <b>{number}</b> issued to {quote['customer_name']} "
-            f"({total}) by {technician}.\n{link}")
-    except Exception:
-        pass  # the office ping is nice to have, never a reason to fail a send
-
-
-# -------------------------------------------------------------------- routes
+# ───────────────────────────────────────────────────────────────────── the routes
 
 def _parse_form(raw: bytes) -> dict:
     """Twilio always posts application/x-www-form-urlencoded, so parse it with the
     stdlib rather than Starlette's request.form().
 
-    Not a style preference: request.form() asserts on python-multipart being
-    installed, for urlencoded bodies too, and that package is not a FastAPI
-    dependency. Relying on it would mean the webhook 500s on a host where nobody
-    remembered to add it — which is exactly how this was found.
-
-    parse_qs also URL-decodes, which is what the signature is computed over.
+    Not a style preference: request.form() asserts on python-multipart being installed,
+    for urlencoded bodies too, and that package is not a FastAPI dependency. Relying on
+    it means the webhook 500s on a host where nobody remembered to add it — which is
+    exactly how this was found the first time.
     """
     parsed = parse_qs(raw.decode("utf-8"), keep_blank_values=True)
     return {k: v[0] for k, v in parsed.items()}
@@ -402,88 +150,99 @@ def _parse_form(raw: bytes) -> dict:
 async def inbound(request: Request, background: BackgroundTasks):
     """Twilio posts here on every message to our WhatsApp number."""
     form = _parse_form(await request.body())
-
-    # Recorded BEFORE any check, with Twilio's own message id. Three messages in a
-    # row once arrived logged as the same body; without the MessageSid there is no
-    # way to tell a Twilio redelivery of one message from three separate ones, and
-    # that difference decides whether the bug is ours or theirs.
-    sid = str(form.get("MessageSid", ""))[-8:]
-    _record(number=str(form.get("From", "")).replace("whatsapp:", ""),
-            raw=ascii(form.get("Body", "")), sid=sid, action="webhook-received")
-
-    if WHATSAPP_VALIDATE_SIGNATURE:
-        url = public_base_url() + request.url.path
-        if not _valid_signature(request, form, url):
-            print(f"[quotebot] rejected: bad Twilio signature (sid {sid})", flush=True)
-            _record(number=str(form.get("From", "")).replace("whatsapp:", ""),
-                    raw=ascii(form.get("Body", "")), sid=sid,
-                    action="REJECTED-bad-signature")
-            return Response(status_code=403)
-
-    if not QUOTE_BOT_ENABLED:
-        return EMPTY_TWIML
-
     sender = str(form.get("From", "")).replace("whatsapp:", "").strip()
     body = str(form.get("Body", ""))
-    if not sender:
-        return EMPTY_TWIML
+    sid = str(form.get("MessageSid", "")).strip()
 
-    if not _authorised(sender):
-        print(f"[quotebot] unauthorised sender {sender}", flush=True)
-        background.add_task(
-            whatsapp.send_text, sender,
-            "This number is not set up to issue quotes.")
-        return EMPTY_TWIML
+    if WHATSAPP_VALIDATE_SIGNATURE:
+        if not _valid_signature(request, form, public_base_url() + request.url.path):
+            print(f"[quotebot] rejected: bad Twilio signature (sid {sid[-8:]})", flush=True)
+            return Response(status_code=403)
 
-    background.add_task(_handle, sender, body)
-    return EMPTY_TWIML
+    if not QUOTE_BOT_ENABLED or not sender:
+        return _ack()
+
+    # The idempotency gate, deliberately synchronous. Done inside the background task
+    # instead, two concurrent deliveries of one message would both pass it.
+    if not store.log_inbound(message_sid=sid, from_number=sender,
+                             to_number=str(form.get("To", "")), body=body, role=None):
+        print(f"[quotebot] ignoring redelivery of {sid[-8:]}", flush=True)
+        return _ack()
+
+    # ascii(), never the raw body: this stdout is not always UTF-8, and a print that
+    # raises here would swallow the message and leave the technician with silence.
+    print(f"[quotebot] {sender} #{sid[-8:]}: {ascii(body)[:200]}", flush=True)
+
+    background.add_task(_dispatch, sender, body, sid)
+    return _ack()
 
 
 @router.get("/quotebot/status")
 def status(key: str = ""):
-    """What build is live, how it is configured, and what it last received.
+    """What build is live, how it is configured, whether the migration was run, and
+    what came in last.
 
-    Exists because every bug so far was invisible from outside: the deployed
-    commit could not be confirmed, and the exact `Body` Twilio posted could not
-    be seen. Guarded by API_SECRET_KEY -- it exposes phone numbers and message
-    text, which is the point and also why it is not open.
+    Guarded by API_SECRET_KEY: it exposes phone numbers and message text, which is the
+    point of it and also why it is not open.
     """
     if not API_SECRET_KEY or key != API_SECRET_KEY:
         return Response(status_code=403)
     return {
         "build": BUILD,
         "enabled": QUOTE_BOT_ENABLED,
-        "technicians": QUOTE_TECHNICIANS or "(anyone - allowlist empty)",
+        "model": engine.MODEL,
+        "technicians": QUOTE_TECHNICIANS or "(anyone — allowlist empty, demo mode)",
         "signature_check": WHATSAPP_VALIDATE_SIGNATURE,
         "sender": os.getenv("TWILIO_WHATSAPP_FROM", "(unset)"),
         "base_url": public_base_url(),
-        "yes_words": sorted(YES),
-        "drafts_in_memory": sorted(quotes.DRAFTS),
-        "draft_persistence": quotes._drafts_table_ok,
-        "issued_this_boot": len(quotes.ISSUED),
-        "recent": _RECENT,
+        "database": store.health(),
+        "recent": store.recent_messages(25),
     }
+
+
+@router.get("/quotebot/selftest")
+def selftest(key: str = ""):
+    """Put thirteen real technician messages through the real model and report what it
+    made of each one — approvals in two languages, a swipe-to-reply, a correction, a
+    question, and one sentence that must NOT be read as an approval.
+
+    It lives here because the working Anthropic key is on this host. Nothing is sent to
+    anybody: no Twilio, no database writes, no customer. Costs a few cents per run.
+    """
+    if not API_SECRET_KEY or key != API_SECRET_KEY:
+        return Response(status_code=403)
+    from services import quote_selftest
+    return quote_selftest.run()
 
 
 @router.get("/q/{token}.pdf")
 def quote_pdf(token: str):
-    """Twilio fetches this to attach the quote, so it has to be public and
-    unauthenticated. The token is the secret."""
-    issued = quotes.get_issued(token)
-    if not issued or not issued.get("pdf"):
+    """Twilio fetches this in order to attach the quote, so it has to be public and
+    unauthenticated. The token is the secret.
+
+    Rendered on demand from the stored row rather than kept as a blob: nothing to
+    store, nothing to lose on a restart, and the document can never drift from the
+    record it was made from.
+    """
+    quote = store.get_quote_by_token(token)
+    if not quote:
         return Response(status_code=404)
     return Response(
-        content=issued["pdf"], media_type="application/pdf",
+        content=doc.render_pdf(quote), media_type="application/pdf",
         headers={"Content-Disposition":
-                 f'inline; filename="{issued["quote_number"]}.pdf"'},
+                 f'inline; filename="{quote["quote_number"]}.pdf"',
+                 "Cache-Control": "public, max-age=3600"},
     )
 
 
 @router.get("/q/{token}")
 def quote_page(token: str):
-    """The same quote as a web page - the fallback when Chromium is unavailable,
-    and what the customer taps on their phone either way."""
-    issued = quotes.get_issued(token)
-    if not issued:
-        return HTMLResponse("<h1>This quote link has expired.</h1>", status_code=404)
-    return HTMLResponse(issued["html"])
+    """The same quote as a phone-friendly page — what the customer taps."""
+    quote = store.get_quote_by_token(token)
+    if not quote:
+        return HTMLResponse(
+            "<body style='font:16px system-ui;padding:40px;text-align:center'>"
+            "<h1>This quote link has expired.</h1>"
+            "<p>Please contact us and we'll send it again.</p></body>",
+            status_code=404)
+    return HTMLResponse(doc.render_html(quote, f"/q/{token}.pdf"))

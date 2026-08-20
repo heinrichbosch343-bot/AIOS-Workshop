@@ -37,7 +37,7 @@ router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which
 # build Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-5 (2026-08-20, fuzzy send + on-phone debug)"
+BUILD = "quotebot-6 (2026-08-20, model decides intent; sid tracing)"
 
 EMPTY_TWIML = Response(content="<Response></Response>", media_type="application/xml")
 
@@ -214,7 +214,8 @@ def _debug_text(technician: str) -> str:
     if not mine:
         lines.append("(none)")
     for r in mine:
-        lines.append(f"{r['at'][11:19]}  {r.get('raw')}  ->  {r.get('action')}")
+        sid = f" #{r['sid']}" if r.get("sid") else ""
+        lines.append(f"{r['at'][11:19]}{sid}  {r.get('raw')}  ->  {r.get('action')}")
     return "\n".join(lines)
 
 
@@ -238,68 +239,70 @@ def _handle_locked(technician: str, body: str) -> None:
           f"draft={'yes' if draft else 'no'}", flush=True)
 
     try:
-        # `?` survives _command as an empty string, so check the raw text too.
-        if not text or lowered in HELP or text in HELP:
-            _record(number=technician, raw=safe_body, command=lowered, action="help")
-            whatsapp.send_text(technician, HELP_TEXT)
-            return
-
-        if lowered in NO:
-            _record(number=technician, raw=safe_body, command=lowered, action="cancel")
-            quotes.clear_draft(technician)
-            whatsapp.send_text(technician,
-                               "Cleared. Send me the next job when you are ready.")
-            return
-
+        # `debug` stays a hard-coded keyword on purpose: it has to work even when
+        # the model call is what is broken.
         if lowered in DEBUG:
             _record(number=technician, raw=safe_body, command=lowered, action="debug")
             whatsapp.send_text(technician, _debug_text(technician))
             return
 
-        # Catch-all. Exact matching kept failing on the live bot for reasons not
-        # reproducible locally, so: a short message containing "send" as a WORD,
-        # while a finished quote is waiting, means send it. "sending the boys
-        # round" does not match, because "sending" is not the token "send".
-        if (draft and not draft.get("missing") and len(text) <= 30
-                and _SEND_TOKENS & set(lowered.split())):
-            _record(number=technician, raw=safe_body, command=lowered,
-                    action="issue-fuzzy")
-            _issue(technician, draft)
+        if not text:
+            _record(number=technician, raw=safe_body, command=lowered, action="empty")
+            whatsapp.send_text(technician, HELP_TEXT)
             return
 
-        if lowered in YES:
+        # Everything else is a judgement call, made once, with the quote on the
+        # table as context. Keyword matching used to live here and kept failing
+        # on inputs that could not be reproduced locally.
+        read = quotes.interpret(text, draft)
+        intent = read["intent"]
+        _record(number=technician, raw=safe_body, command=lowered,
+                action=intent, had_draft=bool(draft))
+
+        if intent == "help":
+            whatsapp.send_text(technician, HELP_TEXT)
+            return
+
+        if intent == "answer":
+            whatsapp.send_text(
+                technician, read.get("reply") or "Not sure what you mean there.")
+            return
+
+        if intent == "cancel":
+            quotes.clear_draft(technician)
+            whatsapp.send_text(technician,
+                               "Cleared. Send me the next job when you are ready.")
+            return
+
+        if intent == "send":
             if not draft or draft.get("missing"):
-                _record(number=technician, raw=safe_body, command=lowered,
-                        action="send-but-no-draft", draft=bool(draft))
                 whatsapp.send_text(
                     technician, "Nothing ready to send yet. Send me the job first.")
                 return
-            _record(number=technician, raw=safe_body, command=lowered, action="issue")
             _issue(technician, draft)
             return
 
-        _record(number=technician, raw=safe_body, command=lowered,
-                action="parse", had_draft=bool(draft))
+        # new_job or adjust
+        quote = read.get("quote")
+        if not quote:
+            whatsapp.send_text(technician, HELP_TEXT)
+            return
+        quotes.save_draft(technician, quote)
 
-        # Anything else is either a new job or a correction to the one in progress.
-        parsed = quotes.parse_message(text, prior=draft if draft else None)
-        parsed["customer_phone_e164"] = quotes.normalize_sa_phone(parsed.get("customer_phone"))
-        quotes.save_draft(technician, parsed)
-
-        if parsed["missing"]:
-            whatsapp.send_text(technician, _needs_more(parsed))
+        if quote["missing"]:
+            whatsapp.send_text(technician, _needs_more(quote))
             return
 
-        if not quotes.is_whatsapp_capable(parsed["customer_phone_e164"]):
+        if not quotes.is_whatsapp_capable(quote["customer_phone_e164"]):
             whatsapp.send_text(
                 technician,
-                f"Heads up: {parsed['customer_phone_e164']} cannot receive WhatsApp - "
-                f"{_why_no_whatsapp(parsed['customer_phone_e164'])}. It would fail "
+                f"Heads up: {quote['customer_phone_e164']} cannot receive WhatsApp - "
+                f"{_why_no_whatsapp(quote['customer_phone_e164'])}. It would fail "
                 "silently, so nobody would know. Send me a mobile number for them "
                 "(06, 07, 081-084), or reply SEND and I will give you a link to pass on.")
             return
 
-        whatsapp.send_text(technician, _confirmation(parsed))
+        whatsapp.send_text(technician, _confirmation(quote))
 
     except whatsapp.WhatsAppError as exc:
         print(f"[quotebot] whatsapp error for {technician}: {exc}", flush=True)
@@ -400,10 +403,21 @@ async def inbound(request: Request, background: BackgroundTasks):
     """Twilio posts here on every message to our WhatsApp number."""
     form = _parse_form(await request.body())
 
+    # Recorded BEFORE any check, with Twilio's own message id. Three messages in a
+    # row once arrived logged as the same body; without the MessageSid there is no
+    # way to tell a Twilio redelivery of one message from three separate ones, and
+    # that difference decides whether the bug is ours or theirs.
+    sid = str(form.get("MessageSid", ""))[-8:]
+    _record(number=str(form.get("From", "")).replace("whatsapp:", ""),
+            raw=ascii(form.get("Body", "")), sid=sid, action="webhook-received")
+
     if WHATSAPP_VALIDATE_SIGNATURE:
         url = public_base_url() + request.url.path
         if not _valid_signature(request, form, url):
-            print("[quotebot] rejected: bad Twilio signature", flush=True)
+            print(f"[quotebot] rejected: bad Twilio signature (sid {sid})", flush=True)
+            _record(number=str(form.get("From", "")).replace("whatsapp:", ""),
+                    raw=ascii(form.get("Body", "")), sid=sid,
+                    action="REJECTED-bad-signature")
             return Response(status_code=403)
 
     if not QUOTE_BOT_ENABLED:

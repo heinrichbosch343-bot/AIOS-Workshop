@@ -177,6 +177,113 @@ def normalize_sa_phone_in(text: str):
     return None
 
 
+_INTERPRET_SYSTEM = """You are the brain of a WhatsApp quote bot used by a tradesman
+standing on a customer's property. He types fast and badly, in English and Afrikaans,
+sometimes replying to your own message so your text comes back with his.
+
+You are given the quote currently on the table (or null) and his new message.
+Work out what he WANTS, the way a colleague would, and return ONLY JSON:
+
+{
+  "intent": "new_job" | "adjust" | "send" | "cancel" | "help" | "answer",
+  "quote": { ... } or null,
+  "reply": string or null
+}
+
+Intents:
+- "send"    - he is confirming the quote on the table should go to the customer.
+              "send", "SEND", "ja stuur", "yes", "ok go", "send it to her",
+              "yes please send that", a thumbs up, or your own quote card quoted
+              back with the word send anywhere in it. If a quote is on the table
+              and he says anything approving, it is "send".
+- "cancel"  - scrap it. "cancel", "no", "reset", "start again", "clear".
+- "new_job" - a different job. Set "quote" to the new job, ignoring what was there.
+- "adjust"  - a change to the quote on the table ("make it 1200", "her number is
+              083...", "add a callout fee"). Set "quote" to the COMPLETE updated
+              quote, not just the change.
+- "help"    - he is asking how this works, or greeting you.
+- "answer"  - he asked a question about the quote. Put the answer in "reply".
+
+"quote" shape, for new_job and adjust only:
+{
+  "customer_name": string or null,
+  "customer_phone": string or null,
+  "customer_email": string or null,
+  "site_address": string or null,
+  "line_items": [ { "description": string, "amount": number or null } ],
+  "total": number or null,
+  "notes": string or null
+}
+
+Rules that matter:
+- Write descriptions properly, for a customer to read. "2 slidin panels lounge
+  1.8x2.1 6.38 lam" becomes "Supply and install 2 sliding panels, lounge --
+  1800 x 2100mm, 6.38mm laminated safety glass". Expand trade shorthand, keep
+  every measurement and spec exactly as given, invent nothing.
+- Money: "11.5k", "R11 500", "eleven and a half thousand" all mean 11500.
+- One lump sum for the whole job is one line item and the total.
+- NEVER invent a price, a name, an email or a phone number. Missing means null.
+- If he sends a job and a price with a phone number, that is "new_job" even if a
+  quote is already on the table.
+- If you genuinely cannot tell, and a finished quote is waiting, prefer "send"
+  only when his words are clearly approving; otherwise "help"."""
+
+
+def interpret(text: str, draft=None) -> dict:
+    """Decide what he meant, given what is on the table.
+
+    This replaced a set of exact keyword matches. Those kept failing in ways that
+    could not be reproduced off the live bot -- a body that was not the word he
+    typed -- and every fix widened the keyword list without ever being sure. A
+    model reading the message in context does not care whether "send" arrived as
+    "SEND", "Send.", inside a quoted reply, or in Afrikaans.
+    """
+    payload = {
+        "quote_on_the_table": draft,
+        "his_message": text,
+    }
+    resp = _ai.messages.create(
+        model=MODEL, max_tokens=1500, system=_INTERPRET_SYSTEM,
+        messages=[{"role": "user", "content": json.dumps(payload, indent=2)}],
+    )
+    raw = resp.content[0].text.strip()
+    if raw.startswith("```"):
+        raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw)
+    data = json.loads(raw)
+
+    intent = data.get("intent")
+    if intent not in ("new_job", "adjust", "send", "cancel", "help", "answer"):
+        intent = "help"
+    quote = data.get("quote")
+    if quote and intent in ("new_job", "adjust"):
+        quote = _tidy(quote)
+    return {"intent": intent, "quote": quote, "reply": data.get("reply")}
+
+
+def _tidy(data: dict) -> dict:
+    """Same normalising the old parser did: fill the total, flag what is missing."""
+    items = [i for i in (data.get("line_items") or []) if i.get("description")]
+    total = data.get("total")
+    if total is None and items and all(i.get("amount") is not None for i in items):
+        total = sum(i["amount"] for i in items)
+    if len(items) == 1 and items[0].get("amount") is None and total is not None:
+        items[0]["amount"] = total
+    data["line_items"], data["total"] = items, total
+
+    missing = []
+    if not data.get("customer_name"):
+        missing.append("a customer name")
+    if not normalize_sa_phone(data.get("customer_phone")):
+        missing.append("a valid mobile number")
+    if not items:
+        missing.append("what the job is")
+    if total is None:
+        missing.append("the price")
+    data["missing"] = missing
+    data["customer_phone_e164"] = normalize_sa_phone(data.get("customer_phone"))
+    return data
+
+
 def parse_message(text: str, prior=None) -> dict:
     """Message in, structured quote out. `prior` is an existing draft being adjusted."""
     if prior and looks_like_a_new_job(text):

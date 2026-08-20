@@ -113,8 +113,14 @@ published line. A fresh number is also the free gift we already owe them, since 
 
 ## Known limits
 
-- **Drafts and issued quotes live in memory** and die on redeploy. Fine for a demo.
-  Run migration 013 before a business depends on it.
+- **Issued quotes live in memory** and die on redeploy, so an old quote link can
+  404. Drafts are persisted to `quote_drafts` (migration 013) and fall back to
+  memory if that table is absent -- run the migration and an in-progress quote
+  survives a Railway restart.
+- **Messages from one technician are serialised** by a per-number lock. Without it,
+  SEND typed a second after the job races the Claude parse still writing the draft,
+  and he gets "nothing to send" for a quote he is looking at. This actually happened
+  on the first live test (20 Aug). Different technicians never block each other.
 - **VAT is off** until Zaheer confirms whether they are registered. Never invent a
   VAT number — set `vat_registered` and `vat_number` in `quote_business.json`.
 - **No email copy yet.** Deliberate: the only mail sender wired up is Heinrich's own

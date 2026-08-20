@@ -15,6 +15,8 @@ import base64
 import hashlib
 import hmac
 import os
+import re
+import threading
 from urllib.parse import parse_qs
 
 from fastapi import APIRouter, BackgroundTasks, Request, Response
@@ -110,13 +112,44 @@ def _needs_more(draft: dict) -> str:
 
 # ---------------------------------------------------------------- the worker
 
+_locks_guard = threading.Lock()
+_locks = {}
+
+
+def _lock_for(technician: str) -> threading.Lock:
+    """One lock per technician, so his messages are handled in the order he sent them.
+
+    Without this, SEND typed a second after the job races the Claude parse that is
+    still writing the draft: get_draft() returns nothing and he is told there is
+    nothing to send, for a quote he is looking at. Different technicians never
+    block each other.
+    """
+    with _locks_guard:
+        if technician not in _locks:
+            _locks[technician] = threading.Lock()
+        return _locks[technician]
+
+
+def _command(text: str) -> str:
+    """Normalise a one-word command. People type 'SEND', 'send.', 'Send it!'."""
+    return re.sub(r"[^a-z ]", "", text.lower()).strip()
+
+
 def _handle(technician: str, body: str) -> None:
     """All the slow work: Claude, Chromium, Twilio. Runs after the webhook returns."""
+    with _lock_for(technician):
+        _handle_locked(technician, body)
+
+
+def _handle_locked(technician: str, body: str) -> None:
     text = (body or "").strip()
-    lowered = text.lower()
+    lowered = _command(text)
+    print(f"[quotebot] {technician}: {text[:80]!r} -> command={lowered!r} "
+          f"draft={'yes' if quotes.get_draft(technician) else 'no'}", flush=True)
 
     try:
-        if lowered in HELP:
+        # `?` survives _command as an empty string, so check the raw text too.
+        if not text or lowered in HELP or text in HELP:
             whatsapp.send_text(technician, HELP_TEXT)
             return
 
@@ -209,7 +242,14 @@ def _issue(technician: str, draft: dict) -> None:
         else:
             whatsapp.send_text(to, customer_msg)
     except whatsapp.WhatsAppError as exc:
-        whatsapp.send_text(technician, f"Could not deliver to {to}: {exc}")
+        # The draft is deliberately KEPT so he can retry SEND once the cause is
+        # fixed, rather than retyping the whole job.
+        print(f"[quotebot] delivery to {to} failed: {exc}", flush=True)
+        whatsapp.send_text(
+            technician,
+            f"The quote is ready ({number}, {total}) but it would not deliver to "
+            f"{quotes.display_phone(to)}.\n\n{exc}\n\nHere it is either way - "
+            f"you can forward this link:\n{link}\n\nFix that and reply *SEND* again.")
         return
 
     quotes.clear_draft(technician)

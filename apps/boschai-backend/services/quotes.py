@@ -305,27 +305,70 @@ async def html_to_pdf(html: str) -> bytes:
         return pdf
 
 
-# ------------------------------------------------- in-memory store (demo-grade)
+# ----------------------------------------------------------------- draft store
 #
-# Drafts are short-lived by nature: the technician confirms within a minute or two.
-# Issued quotes are kept so their PDF stays fetchable. Both die on redeploy, which
-# is acceptable for a demo and not for a business -- migration 013 adds the table.
+# Memory first, Supabase behind it. Memory alone loses every in-progress draft on
+# a redeploy or a container cycle, and the technician's next word is usually SEND
+# -- so he gets "nothing to send" for a quote he is looking at. The table makes
+# the draft survive that; the dict keeps the common path fast.
+#
+# Writes are best-effort: if quote_drafts does not exist yet (migration 013), the
+# bot still works exactly as before rather than failing on every message.
 
 DRAFTS = {}   # technician whatsapp number -> draft
 ISSUED = {}   # public token -> issued quote, with rendered html and pdf bytes
 _MAX_ISSUED = 500
+_drafts_table_ok = True   # flipped off after the first "no such table"
+
+
+def _supabase():
+    from db.client import supabase
+    return supabase
 
 
 def save_draft(technician: str, draft: dict) -> None:
     DRAFTS[technician] = draft
+    global _drafts_table_ok
+    if not _drafts_table_ok:
+        return
+    try:
+        _supabase().table("quote_drafts").upsert({
+            "technician": technician,
+            "draft": draft,
+            "updated_at": datetime.now(TZ).isoformat(),
+        }, on_conflict="technician").execute()
+    except Exception as exc:
+        _drafts_table_ok = False
+        print(f"[quotes] draft persistence off ({exc}); memory only until "
+              f"migration 013 is run", flush=True)
 
 
 def get_draft(technician: str):
-    return DRAFTS.get(technician)
+    draft = DRAFTS.get(technician)
+    if draft is not None or not _drafts_table_ok:
+        return draft
+    try:
+        rows = (_supabase().table("quote_drafts")
+                .select("draft")
+                .eq("technician", technician)
+                .limit(1).execute()).data
+        if rows:
+            draft = rows[0]["draft"]
+            DRAFTS[technician] = draft   # warm the cache after a restart
+            return draft
+    except Exception:
+        pass
+    return None
 
 
 def clear_draft(technician: str) -> None:
     DRAFTS.pop(technician, None)
+    if not _drafts_table_ok:
+        return
+    try:
+        _supabase().table("quote_drafts").delete().eq("technician", technician).execute()
+    except Exception:
+        pass
 
 
 def new_token() -> str:

@@ -53,3 +53,18 @@ create index if not exists quotes_number_idx on quotes (quote_number);
 create index if not exists quotes_issued_idx on quotes (issued_date desc);
 create index if not exists quotes_open_idx on quotes (sent_at)
     where accepted_at is null;
+
+
+-- The in-progress draft, one row per technician, cleared when the quote is sent.
+--
+-- Without this the draft lives only in the web process's memory, so a redeploy or
+-- a container cycle loses it -- and the technician's very next word is usually
+-- SEND, which then answers "nothing to send" for a quote he is looking at.
+-- The bot degrades gracefully if this table is absent, so running it is optional
+-- for a demo and not optional for a business.
+
+create table if not exists quote_drafts (
+    technician  text primary key,
+    draft       jsonb not null,
+    updated_at  timestamptz not null default now()
+);

@@ -45,6 +45,28 @@ The customer gets a branded message with the PDF attached, and when they reply t
 technician and Telegram both hear about it — `accepted_at` gets stamped on a yes.
 **A quote nobody chased is the failure this exists to remove, so the loop closes.**
 
+### Who is the technician, and who is the customer
+
+`QUOTE_TECHNICIANS` decides, and nothing overrides it:
+
+- a number **on the list** is always the technician;
+- a number **not on the list** holding a quote from the last 60 days is that
+  quote's customer;
+- anyone else is told to call the office.
+
+It ran the other way round briefly — the role was inferred from the data, so that
+one phone could play both parts while recording a demo. It backfired: once a take
+had quoted the technician's own number, that row sat in the table and every message
+he sent afterwards was answered as a customer reply, with no way back short of
+deleting the row. One direction, fixed by config, is also the truthful rule for the
+business — technicians issue quotes, customers receive them.
+
+The consequence worth knowing: **a listed number can never receive a quote it can
+reply to.** Put the demo's customer phone on the list and its "yes" is read as the
+start of a new job. `/quotebot/ready` checks for exactly that and says so, and it
+also compares the list against the `technicians` map in `quote_business.json`, since
+the two drifting apart produces the same baffling symptom.
+
 ---
 
 ## The one rule that matters
@@ -191,11 +213,13 @@ all, which is the thing to find out before a demo rather than during one.
 
 | | |
 |---|---|
+| `GET /quotebot/ready` | **Start here when it's broken.** Whether it can quote right now and, if not, a `blockers` list saying what to go and do. Unguarded on purpose — the moment something is wrong is the moment a key-protected endpoint is hardest to reach. Reports only whether things exist: no numbers, no message text, booleans for secrets. |
+| `GET /quotebot/channels` | Asks Twilio, Google and Paystack directly whether they still accept our credentials. Read-only, cached 60s, sends nothing. Config being *present* is not the same as it *working* — a Google refresh token expires every 7 days while the consent screen is in Testing mode. |
 | `GET /quotebot/status?key=…` | The live build string, the config, whether each table exists, and the last 25 messages |
 | `GET /quotebot/selftest?key=…` | Puts 13 real technician messages through the real model and reports what it made of each. Costs a few cents. Sends nothing. |
 
-Both are guarded by `API_SECRET_KEY` because they expose phone numbers and message
-text.
+The last two are guarded by `API_SECRET_KEY` because they expose phone numbers and
+message text.
 
 ---
 

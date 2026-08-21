@@ -377,6 +377,18 @@ def _and_list(items: list) -> str:
 
 # ──────────────────────────────────────────────────────────────────── issuing
 
+# The last payment link attempt: when, for which quote, and exactly why it did or did
+# not work. Surfaced on /quotebot/ready because "the quote arrived but the link didn't"
+# is otherwise invisible from outside, and guessing at it has already cost days. Holds
+# no checkout URL, no customer name, no phone number -- just the outcome and the reason.
+LAST_PAYMENT_ATTEMPT = {}
+
+
+def _record_payment(**row) -> None:
+    LAST_PAYMENT_ATTEMPT.clear()
+    LAST_PAYMENT_ATTEMPT.update({"at": doc.now_iso(), **row})
+
+
 def _attach_payment(quote_id, quote: dict) -> dict:
     """Create the deposit link for a freshly issued quote and write it to its row.
 
@@ -397,6 +409,10 @@ def _attach_payment(quote_id, quote: dict) -> dict:
                   if deposit is None else "PAYSTACK_SECRET_KEY is not set")
         store.update_quote(quote_id, {"payment_status": "skipped",
                                       "payment_error": reason})
+        _record_payment(quote=quote.get("quote_number"), outcome="skipped",
+                        reason=reason, deposit=deposit,
+                        policy=doc.payment_policy().get("deposit_percent"),
+                        total_seen=quote.get("total"))
         return {"payment_status": "skipped", "payment_error": reason}
 
     reference = payments.new_reference(quote["quote_number"])
@@ -416,6 +432,8 @@ def _attach_payment(quote_id, quote: dict) -> dict:
         store.update_quote(quote_id, {"payment_status": "failed",
                                       "deposit_amount": deposit,
                                       "payment_error": error})
+        _record_payment(quote=quote.get("quote_number"), outcome="failed",
+                        reason=error, deposit=deposit, reference=reference)
         return {"payment_status": "failed", "payment_error": error,
                 "deposit_amount": deposit}
 
@@ -431,8 +449,12 @@ def _attach_payment(quote_id, quote: dict) -> dict:
               f"— no money will move", flush=True)
 
     policy = doc.payment_policy()
+    rides_along = bool(policy.get("send_with_quote"))
+    _record_payment(quote=quote.get("quote_number"), outcome="created",
+                    deposit=deposit, reference=created["reference"],
+                    sent_with_quote=rides_along, link_produced=bool(created.get("url")))
     return {**fields,
-            "wa_payment_url": created["url"] if policy.get("send_with_quote") else ""}
+            "wa_payment_url": created["url"] if rides_along else ""}
 
 
 def payment_received(quote: dict, amount_rand: float, channel: str = "") -> None:

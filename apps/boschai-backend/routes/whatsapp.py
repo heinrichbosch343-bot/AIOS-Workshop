@@ -322,6 +322,9 @@ def ready():
         "model": engine.MODEL,
         "env_with_stray_quotes": dirty,
         "last_signature_rejection": _LAST_REJECTION or "none since restart",
+        "payment_policy": {k: doc.payment_policy().get(k) for k in
+                           ("enabled", "deposit_percent", "send_with_quote")},
+        "last_payment_attempt": engine.LAST_PAYMENT_ATTEMPT or "none since restart",
         "twilio_sender": clean_env("TWILIO_WHATSAPP_FROM") or "(unset)",
         "paystack_mode": ("test" if paystack_key.startswith("sk_test_")
                           else "live" if paystack_key else "unset"),

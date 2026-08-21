@@ -40,7 +40,7 @@ router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which build
 # Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-8 (2026-08-21, roles fixed one-way: the allowlist decides, always)"
+BUILD = "quotebot-9 (2026-08-21, roles one-way + allowlist drift detection)"
 
 
 def _ack() -> Response:
@@ -350,6 +350,22 @@ def ready():
             "technician, so its reply will be read as a NEW job, not as an answer. "
             "Remove it from QUOTE_TECHNICIANS if it is meant to be the customer.")
 
+    # Does Railway agree with the repo about who the technicians are? quote_business.json
+    # names them for the 'Quoted by' line; QUOTE_TECHNICIANS decides who may quote. They
+    # are meant to be the same set, and when they drift the symptom is baffling: the
+    # right phone is treated as a customer and answers its own job. Comparing them names
+    # that in one line — and comparing SETS rather than printing them keeps this endpoint
+    # free of phone numbers.
+    named = set(doc.business().get("technicians", {}))
+    listed = set(QUOTE_TECHNICIANS)
+    config_agrees = (not listed and not named) or listed == named
+    if listed and named and not config_agrees:
+        blockers.append(
+            f"QUOTE_TECHNICIANS on Railway ({len(listed)} number(s)) does not match the "
+            f"technicians named in quote_business.json ({len(named)}). The allowlist is "
+            "what decides who may quote, so if the wrong number is on it the right phone "
+            "gets treated as a customer. Make them the same set.")
+
     # Quotes still work without the payment side, so 'ready' does not depend on it.
     core_ok = (checks["quote_bot_enabled"] and checks["anthropic_key_set"]
                and checks["twilio_auth_set"] and checks["twilio_sender_set"]
@@ -365,6 +381,8 @@ def ready():
         "checks": checks,
         "roles": {
             "technicians_listed": len(QUOTE_TECHNICIANS),
+            "allowlist_matches_quote_business_json": config_agrees,
+            "allowlisted_numbers_already_quoted": quoted_technicians,
             "rule": ("A listed number is ALWAYS the technician. Anyone else holding a "
                      "quote from the last 60 days is the customer. Everyone else is "
                      "told to call the office."

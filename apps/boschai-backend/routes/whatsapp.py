@@ -169,27 +169,48 @@ def _lock_for(number: str) -> threading.Lock:
         return _locks[number]
 
 
-def _dispatch(sender: str, body: str, message_sid: str) -> None:
-    """Work out who this is, and hand them to the right half of the engine.
+def _role_of(sender: str):
+    """Is this person quoting, or being quoted? Returns (role, quote).
 
-    Routing is by DATA first, not by config: anyone holding a recent quote from us is
-    a customer replying, whatever the allowlist says. That is what closes the loop even
-    in demo mode, where the allowlist is empty.
+    Decided by DATA before config. Anyone holding a quote that SOMEONE ELSE sent them
+    is a customer replying, whatever the allowlist says — and that stays true even if
+    they are themselves a listed technician.
+
+    That last part is what lets both phones sit in QUOTE_TECHNICIANS at once. Whichever
+    one sends a job is the technician for it, and whichever one receives the quote is
+    the customer when they reply. Useful in the field, where a technician can perfectly
+    well be quoted by a colleague; essential for recording a demo, where the roles need
+    to swap between takes without editing a Railway variable each time.
+
+    A quote someone sent to THEMSELVES never flips them into the customer seat, or a
+    technician testing on his own number could never send a second job.
     """
+    quote = store.latest_quote_for_phone(sender)
+    if quote and quote.get("quoted_by_number") != sender:
+        return "customer", quote
+
+    if _is_technician(sender):
+        return "technician", None
+
+    if not QUOTE_TECHNICIANS:
+        # Demo mode: no allowlist set, so anyone reaching the sandbox may quote.
+        return "technician", None
+
+    return "stranger", None
+
+
+def _dispatch(sender: str, body: str, message_sid: str) -> None:
+    """Work out who this is, and hand them to the right half of the engine."""
     with _lock_for(sender):
         try:
-            if _is_technician(sender):
+            role, quote = _role_of(sender)
+            print(f"[quotebot] {sender} is the {role}", flush=True)
+
+            if role == "technician":
                 engine.handle_technician(sender, body, message_sid)
                 return
-
-            quote = store.latest_quote_for_phone(sender)
-            if quote:
+            if role == "customer":
                 engine.handle_customer(sender, body, quote, message_sid)
-                return
-
-            if not QUOTE_TECHNICIANS:
-                # Demo mode: no allowlist set, so anyone reaching the sandbox may quote.
-                engine.handle_technician(sender, body, message_sid)
                 return
 
             engine.say(sender, NOT_FOR_YOU)

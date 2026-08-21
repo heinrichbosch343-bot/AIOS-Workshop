@@ -24,6 +24,8 @@ from fastapi.responses import HTMLResponse
 
 from config import (
     API_SECRET_KEY,
+    clean_env,
+    has_stray_quotes,
     QUOTE_BOT_ENABLED,
     QUOTE_TECHNICIANS,
     WHATSAPP_VALIDATE_SIGNATURE,
@@ -71,7 +73,7 @@ def _valid_signature(request: Request, form: dict, url: str) -> bool:
     params, keyed on the auth token. Without this the endpoint is an open megaphone
     that sends WhatsApp messages on demand, billed to us."""
     signature = request.headers.get("X-Twilio-Signature", "")
-    token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+    token = clean_env("TWILIO_AUTH_TOKEN")
     if not signature or not token:
         return False
     payload = url + "".join(k + str(form[k]) for k in sorted(form))
@@ -194,17 +196,30 @@ def ready():
     tables = store.health()
     missing = [name for name, state in tables.items() if state != "ok"]
 
-    paystack_key = os.getenv("PAYSTACK_SECRET_KEY", "").strip()
+    paystack_key = clean_env("PAYSTACK_SECRET_KEY")
     checks = {
         "quote_bot_enabled": QUOTE_BOT_ENABLED,
         "technicians_allowlisted": bool(QUOTE_TECHNICIANS),
-        "twilio_sender_set": bool(os.getenv("TWILIO_WHATSAPP_FROM", "").strip()),
-        "twilio_auth_set": bool(os.getenv("TWILIO_AUTH_TOKEN", "").strip()),
-        "anthropic_key_set": bool(os.getenv("ANTHROPIC_API_KEY", "").strip()),
+        "twilio_sender_set": bool(clean_env("TWILIO_WHATSAPP_FROM")),
+        "twilio_auth_set": bool(clean_env("TWILIO_AUTH_TOKEN")),
+        "anthropic_key_set": bool(clean_env("ANTHROPIC_API_KEY")),
         "paystack_key_set": bool(paystack_key),
     }
 
+    # A pasted quote character is invisible and catastrophic: it broke every Twilio
+    # signature check for a day, because the signature is computed over the URL. The
+    # values are cleaned before use now, but the paste error is still worth naming.
+    dirty = [name for name in
+             ("PUBLIC_BASE_URL", "TWILIO_ACCOUNT_SID", "TWILIO_AUTH_TOKEN",
+              "TWILIO_WHATSAPP_FROM", "ANTHROPIC_API_KEY", "PAYSTACK_SECRET_KEY",
+              "API_SECRET_KEY", "QUOTE_TECHNICIANS")
+             if has_stray_quotes(name)]
+
     blockers = []
+    if dirty:
+        blockers.append("These Railway variables have stray quote characters around "
+                        f"their values: {', '.join(dirty)}. They are stripped "
+                        "automatically now, but tidy them so nothing else trips on it.")
     if not checks["quote_bot_enabled"]:
         blockers.append("Set QUOTE_BOT_ENABLED=1 on Railway — the bot ignores every "
                         "message until you do.")
@@ -238,6 +253,8 @@ def ready():
         "checks": checks,
         "tables": tables,
         "model": engine.MODEL,
+        "env_with_stray_quotes": dirty,
+        "twilio_sender": clean_env("TWILIO_WHATSAPP_FROM") or "(unset)",
         "paystack_mode": ("test" if paystack_key.startswith("sk_test_")
                           else "live" if paystack_key else "unset"),
         "base_url": public_base_url(),

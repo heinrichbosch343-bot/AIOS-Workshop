@@ -20,13 +20,13 @@ from datetime import datetime, timedelta
 
 from anthropic import Anthropic
 
-from config import public_base_url
+from config import clean_env, public_base_url
 from services import quote_doc as doc
 from services import payments
 from services import quote_store as store
 from services import whatsapp
 
-MODEL = os.getenv("QUOTE_MODEL", "claude-sonnet-4-6")
+MODEL = clean_env("QUOTE_MODEL") or "claude-sonnet-4-6"
 
 _client = None
 
@@ -34,7 +34,7 @@ _client = None
 def _ai() -> Anthropic:
     global _client
     if _client is None:
-        _client = Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
+        _client = Anthropic(api_key=clean_env("ANTHROPIC_API_KEY"))
     return _client
 
 

@@ -9,9 +9,9 @@ the window is what matters: joining the sandbox opens one. That is fine for a
 demo where both phones are ours. Production swaps `send_text` for a template
 send — see claude-vault/modules/review-booster/reference/whatsapp-setup.md.
 """
-import os
-
 import httpx
+
+from config import clean_env
 
 API_ROOT = "https://api.twilio.com/2010-04-01"
 TIMEOUT = 30
@@ -44,8 +44,8 @@ SANDBOX_HINT = ("That number has not joined the Twilio sandbox. Send the join co
 
 
 def _auth() -> tuple[str, str]:
-    sid = os.getenv("TWILIO_ACCOUNT_SID", "").strip()
-    token = os.getenv("TWILIO_AUTH_TOKEN", "").strip()
+    sid = clean_env("TWILIO_ACCOUNT_SID")
+    token = clean_env("TWILIO_AUTH_TOKEN")
     if not sid or not token:
         raise WhatsAppError("TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN are not set.")
     return sid, token
@@ -53,7 +53,7 @@ def _auth() -> tuple[str, str]:
 
 def sender() -> str:
     """Our WhatsApp number, always in Twilio's `whatsapp:+…` form."""
-    raw = os.getenv("TWILIO_WHATSAPP_FROM", "").strip()
+    raw = clean_env("TWILIO_WHATSAPP_FROM")
     if not raw:
         raise WhatsAppError(
             "TWILIO_WHATSAPP_FROM is not set. For the sandbox this is the number Twilio "

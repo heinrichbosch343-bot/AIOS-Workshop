@@ -11,11 +11,12 @@ handed an amount and it makes a link. `quote_business.json` owns the deposit pol
 import hashlib
 import hmac
 import json
-import os
 import secrets
 from decimal import ROUND_HALF_UP, Decimal
 
 import httpx
+
+from config import clean_env
 
 API = "https://api.paystack.co"
 TIMEOUT = 30
@@ -26,11 +27,11 @@ class PaymentError(RuntimeError):
 
 
 def enabled() -> bool:
-    return bool(os.getenv("PAYSTACK_SECRET_KEY", "").strip())
+    return bool(clean_env("PAYSTACK_SECRET_KEY"))
 
 
 def _secret() -> str:
-    key = os.getenv("PAYSTACK_SECRET_KEY", "").strip()
+    key = clean_env("PAYSTACK_SECRET_KEY")
     if not key:
         raise PaymentError("PAYSTACK_SECRET_KEY is not set.")
     return key

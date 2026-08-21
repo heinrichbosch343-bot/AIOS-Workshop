@@ -122,12 +122,37 @@ QUOTE_BOT_ENABLED = os.environ.get("QUOTE_BOT_ENABLED", "0") == "1"
 # Which WhatsApp numbers may issue quotes, comma separated, E.164 (+27821234567).
 # EMPTY MEANS ANYONE who can reach the number — fine for a sandbox demo where only
 # joined phones get through, wrong the moment this points at a real business.
-QUOTE_TECHNICIANS = [s.strip() for s in os.environ.get("QUOTE_TECHNICIANS", "").split(",") if s.strip()]
+QUOTE_TECHNICIANS = [t.strip().strip('"').strip("'").strip()
+                     for t in os.environ.get("QUOTE_TECHNICIANS", "").split(",")
+                     if t.strip().strip('"').strip("'").strip()]
 
 # Verify Twilio's X-Twilio-Signature on every webhook. Without it the endpoint is an
 # open megaphone: anyone who finds the URL can make us send WhatsApp messages on our
 # bill. Only ever turn this off against a local tunnel.
 WHATSAPP_VALIDATE_SIGNATURE = os.environ.get("WHATSAPP_VALIDATE_SIGNATURE", "1") == "1"
+
+
+def clean_env(name: str, default: str = "") -> str:
+    """An environment variable with the punctuation a copy-paste leaves behind.
+
+    Railway's raw editor, .env files and shell exports all disagree about quoting, and
+    a value pasted as `PUBLIC_BASE_URL="https://x.app"` arrives with the quotes still
+    attached. That cost a day: one stray `"` on the end of the base URL made every
+    Twilio signature check fail, because the signature is computed over the URL — so
+    the bot silently 403'd every message a technician sent and looked completely dead,
+    while Paystack (whose signature covers only the body) carried on working fine.
+
+    Strip it here, once, rather than trusting whoever typed it.
+    """
+    value = os.environ.get(name, default) or ""
+    return value.strip().strip('"').strip("'").strip()
+
+
+def has_stray_quotes(name: str) -> bool:
+    """Whether the raw value still carries quote characters — reported by
+    /quotebot/ready so the next paste error is visible in seconds, not days."""
+    raw = os.environ.get(name, "") or ""
+    return raw.strip() != raw.strip().strip('"').strip("'").strip()
 
 
 def public_base_url() -> str:
@@ -137,10 +162,10 @@ def public_base_url() -> str:
     be the real external URL — localhost will not do. Railway injects its own domain;
     PUBLIC_BASE_URL overrides for anything else.
     """
-    explicit = os.environ.get("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    explicit = clean_env("PUBLIC_BASE_URL").rstrip("/")
     if explicit:
         return explicit
-    railway = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip()
+    railway = clean_env("RAILWAY_PUBLIC_DOMAIN")
     if railway:
         return f"https://{railway}"
     return "http://localhost:8000"

@@ -40,7 +40,7 @@ router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which build
 # Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-9 (2026-08-21, roles one-way + allowlist drift detection)"
+BUILD = "quotebot-10 (2026-08-21, demo roles swapped: laptop quotes, phone receives)"
 
 
 def _ack() -> Response:
@@ -330,12 +330,13 @@ def ready():
         blockers.append("PAYSTACK_SECRET_KEY is not set — quotes still go out, just "
                         "with no payment link.")
 
-    # The one way this routing can be misconfigured, and it is silent otherwise: a
-    # number on the allowlist is ALWAYS the technician, so a quote sent to it can
-    # never be replied to. The reply is read as the start of a new job instead, and
-    # the customer half of the demo simply never happens. Detected, not guessed —
-    # this only fires when a quote has actually been issued to a listed number. No
-    # phone number is returned, so it stays safe on an unguarded endpoint.
+    # A number on the allowlist is ALWAYS the technician, so a quote sent to it can
+    # never be replied to — the reply is read as the start of a new job instead.
+    # Worth knowing, but NOT a blocker: after the demo roles are swapped round, the
+    # new technician number is legitimately holding quotes from when it played the
+    # customer, and nothing is wrong. Putting that in `blockers` would be telling
+    # him to fix something that is fine, and a blocker list is only worth reading
+    # if everything in it needs acting on. No phone number is returned either way.
     quoted_technicians = 0
     for number in QUOTE_TECHNICIANS:
         try:
@@ -343,12 +344,15 @@ def ready():
                 quoted_technicians += 1
         except Exception:
             break
+
+    warnings = []
     if quoted_technicians:
-        blockers.append(
+        warnings.append(
             f"{quoted_technicians} of the {len(QUOTE_TECHNICIANS)} allowlisted "
-            "technician numbers has been sent a quote. A listed number is always the "
-            "technician, so its reply will be read as a NEW job, not as an answer. "
-            "Remove it from QUOTE_TECHNICIANS if it is meant to be the customer.")
+            "technician number(s) is holding a quote of its own. It stays the "
+            "technician, so it cannot reply to that quote — a reply from it starts a "
+            "new job. Expected right after swapping the demo roles round; a problem "
+            "only if that number was meant to be the customer.")
 
     # Does Railway agree with the repo about who the technicians are? quote_business.json
     # names them for the 'Quoted by' line; QUOTE_TECHNICIANS decides who may quote. They
@@ -378,6 +382,7 @@ def ready():
         "ready_to_take_payment": core_ok and checks["paystack_key_set"]
                                  and "payment_events" not in missing,
         "blockers": blockers or ["none — everything needed is in place"],
+        "warnings": warnings or "none",
         "checks": checks,
         "roles": {
             "technicians_listed": len(QUOTE_TECHNICIANS),

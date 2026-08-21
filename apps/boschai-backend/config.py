@@ -114,6 +114,19 @@ DAILY_BRIEF_ENABLED = os.environ.get("DAILY_BRIEF_ENABLED", "0") == "1"
 INVOICE_AUTOSEND_ENABLED = os.environ.get("INVOICE_AUTOSEND_ENABLED", "0") == "1"
 # === BoschAI: Recurring invoicing — END ===
 
+# === BoschAI: Telegram notifications — BEGIN ===
+# Every outbound Telegram message in this backend goes through
+# services/notify.send_telegram(), so this one flag silences all of them: the daily
+# brief, invoicing, the drips, follow-ups, sign-off nudges and the quote bot.
+#
+# TURNED OFF at Heinrich's request on 2026-08-21. Set TELEGRAM_ENABLED=1 on Railway to
+# bring it back — nothing else needs changing, and no caller had to be touched.
+#
+# This does NOT stop the Telegram bot from listening for commands; that has its own
+# switch, DISABLE_TELEGRAM_BOT=1, in main.py.
+TELEGRAM_ENABLED = os.environ.get("TELEGRAM_ENABLED", "0") == "1"
+# === BoschAI: Telegram notifications — END ===
+
 # === BoschAI: WhatsApp quote bot — BEGIN ===
 # A technician messages the bot from site, it writes the quote up, he replies SEND
 # and the customer gets a numbered PDF. Off by default, like every other sender here.

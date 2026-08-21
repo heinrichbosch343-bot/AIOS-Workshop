@@ -24,6 +24,7 @@ from fastapi.responses import HTMLResponse
 
 from config import (
     API_SECRET_KEY,
+    TELEGRAM_ENABLED,
     clean_env,
     has_stray_quotes,
     QUOTE_BOT_ENABLED,
@@ -322,6 +323,7 @@ def ready():
         "model": engine.MODEL,
         "env_with_stray_quotes": dirty,
         "last_signature_rejection": _LAST_REJECTION or "none since restart",
+        "telegram_notifications": "on" if TELEGRAM_ENABLED else "OFF (set TELEGRAM_ENABLED=1 to restore)",
         "payment_policy": {k: doc.payment_policy().get(k) for k in
                            ("enabled", "deposit_percent", "send_with_quote")},
         "last_payment_attempt": engine.LAST_PAYMENT_ATTEMPT or "none since restart",

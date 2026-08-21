@@ -51,6 +51,8 @@
     "enabled": true,
     "deposit_percent": 50,
     "send_with_quote": true,
+    "_receipt_note": "Paystack REQUIRES an email on every transaction and sends the receipt there. Most jobs are quoted with a name and a number only, so this is the fallback. It is Heinrich's address ON PURPOSE while this is a demo -- a test payment must never drop a receipt into a prospect's inbox. Change it to the client's own address the day they go live.",
+    "receipt_fallback_email": "heinrichbosch343@gmail.com",
     "_label_note": "{deposit} and {total} are filled by code; never write a figure here.",
     "quote_line": "To get started, the deposit is *{deposit}* — you can pay it securely here:",
     "accept_line": "Here's the secure link for the *{deposit}* deposit:",

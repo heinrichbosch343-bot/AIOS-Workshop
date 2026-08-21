@@ -417,9 +417,21 @@ def _attach_payment(quote_id, quote: dict) -> dict:
 
     reference = payments.new_reference(quote["quote_number"])
     # Paystack requires an email and sends the receipt there. Most jobs are quoted with
-    # a phone number only, so a synthetic address keeps the link working rather than
-    # failing over a field the customer never gave us.
-    email = quote.get("customer_email") or f"{reference.lower()}@quotes.invalid"
+    # a phone number only, so this falls back to the business's own address rather than
+    # inventing one — an invented address on a reserved TLD is refused outright, and
+    # that is precisely why quotes were arriving with no payment link.
+    email = doc.receipt_email(quote)
+    if not email:
+        reason = ("No usable email for the Paystack receipt. Set "
+                  "payment.receipt_fallback_email (or a valid business email) in "
+                  "quote_business.json.")
+        store.update_quote(quote_id, {"payment_status": "failed",
+                                      "deposit_amount": deposit,
+                                      "payment_error": reason})
+        _record_payment(quote=quote.get("quote_number"), outcome="failed",
+                        reason=reason, deposit=deposit)
+        return {"payment_status": "failed", "payment_error": reason,
+                "deposit_amount": deposit}
 
     try:
         created = payments.create_link(

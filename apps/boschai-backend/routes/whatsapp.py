@@ -332,6 +332,30 @@ def ready():
     }
 
 
+@router.get("/quotebot/channels")
+def channels():
+    """Can we actually reach a customer right now — WhatsApp, email, and payments?
+
+    Separate from /quotebot/ready because this one makes real (read-only) calls to
+    Twilio, Google and Paystack. Results are cached for 60s so an open endpoint can
+    never be used to hammer someone else's API, and nothing here sends a message,
+    an email or a payment.
+
+    Config being PRESENT is not the same as it WORKING: a Twilio token can be rotated
+    and a Google refresh token expires every seven days while the consent screen is in
+    Testing mode. Both look identical from outside until you ask.
+    """
+    from services import delivery_health
+    result = delivery_health.all_channels()
+    broken = [name for name, r in result.items() if not r.get("ok")]
+    return {
+        "build": BUILD,
+        "all_working": not broken,
+        "not_working": broken or "none",
+        "channels": result,
+    }
+
+
 @router.get("/quotebot/status")
 def status(key: str = ""):
     """What build is live, how it is configured, whether the migration was run, and

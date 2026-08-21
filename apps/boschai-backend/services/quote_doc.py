@@ -299,6 +299,42 @@ def payment_received_ack(quote: dict) -> str:
     return _fill(payment_policy().get("paid_ack", "Payment received, thank you."), quote)
 
 
+_EMAIL_SHAPE = re.compile(r"^[^@\s]+@[^@\s]+\.[A-Za-z]{2,}$")
+
+
+def looks_like_an_email(value) -> bool:
+    """Good enough to catch what Paystack rejects, without pretending to be RFC 5322."""
+    text = str(value or "").strip()
+    if not _EMAIL_SHAPE.match(text):
+        return False
+    # Reserved TLDs (RFC 2606). They look valid and every payment gateway refuses them.
+    return not text.lower().endswith((".invalid", ".test", ".example", ".localhost"))
+
+
+def receipt_email(quote: dict) -> str:
+    """Where Paystack should send the payment receipt.
+
+    Paystack REQUIRES an email on every transaction, and most jobs are quoted with a
+    name, a number and a price — no address. The first version invented
+    `{reference}@quotes.invalid`, which Paystack rejects outright with "Invalid Email
+    Address Passed", so no link was ever created for those jobs. The quote still went
+    out, so it looked like the payment link had simply been forgotten.
+
+    Falling back to the BUSINESS's own address is both deliverable and correct: if the
+    customer gave us no email, the receipt belongs with the people who did the work.
+    """
+    customer = str(quote.get("customer_email") or "").strip()
+    if looks_like_an_email(customer):
+        return customer
+    biz = business()
+    fallback = (payment_policy().get("receipt_fallback_email") or "").strip()
+    if looks_like_an_email(fallback):
+        return fallback
+    if looks_like_an_email(biz.get("email")):
+        return biz["email"]
+    return ""
+
+
 # ────────────────────────────────────────────────────────────────────────── the PDF
 
 _SUBS = {

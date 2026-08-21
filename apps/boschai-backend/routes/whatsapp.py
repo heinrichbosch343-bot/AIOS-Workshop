@@ -177,6 +177,73 @@ async def inbound(request: Request, background: BackgroundTasks):
     return _ack()
 
 
+@router.get("/quotebot/ready")
+def ready():
+    """Is this thing actually able to work right now, and if not, what is missing?
+
+    Deliberately UNGUARDED, because the moment something is broken is the moment the
+    key-protected endpoint is hardest to get at — and being blind is what turned a
+    one-line bug into a three-day hunt. It is safe to leave open because it reports
+    only whether things EXIST: no phone numbers, no message text, no customer data,
+    and booleans for secrets rather than the secrets themselves.
+
+    `blockers` is the whole point: it says what to go and do, in order.
+    """
+    from services import payments
+
+    tables = store.health()
+    missing = [name for name, state in tables.items() if state != "ok"]
+
+    paystack_key = os.getenv("PAYSTACK_SECRET_KEY", "").strip()
+    checks = {
+        "quote_bot_enabled": QUOTE_BOT_ENABLED,
+        "technicians_allowlisted": bool(QUOTE_TECHNICIANS),
+        "twilio_sender_set": bool(os.getenv("TWILIO_WHATSAPP_FROM", "").strip()),
+        "twilio_auth_set": bool(os.getenv("TWILIO_AUTH_TOKEN", "").strip()),
+        "anthropic_key_set": bool(os.getenv("ANTHROPIC_API_KEY", "").strip()),
+        "paystack_key_set": bool(paystack_key),
+    }
+
+    blockers = []
+    if not checks["quote_bot_enabled"]:
+        blockers.append("Set QUOTE_BOT_ENABLED=1 on Railway — the bot ignores every "
+                        "message until you do.")
+    if not checks["anthropic_key_set"]:
+        blockers.append("ANTHROPIC_API_KEY is not set — the bot cannot understand "
+                        "anything without it.")
+    if not checks["twilio_auth_set"] or not checks["twilio_sender_set"]:
+        blockers.append("TWILIO_AUTH_TOKEN / TWILIO_WHATSAPP_FROM missing — it can "
+                        "receive messages but cannot reply.")
+    for name in missing:
+        sql = ("015_quote_payments.sql" if name == "payment_events"
+               else "014_quote_bot.sql")
+        blockers.append(f"Table '{name}' is missing — run {sql} in the Supabase SQL "
+                        f"editor.")
+    if not checks["paystack_key_set"]:
+        blockers.append("PAYSTACK_SECRET_KEY is not set — quotes still go out, just "
+                        "with no payment link.")
+
+    # Quotes still work without the payment side, so 'ready' does not depend on it.
+    core_ok = (checks["quote_bot_enabled"] and checks["anthropic_key_set"]
+               and checks["twilio_auth_set"] and checks["twilio_sender_set"]
+               and "quotes" not in missing and "quote_sessions" not in missing
+               and "quote_messages" not in missing)
+
+    return {
+        "build": BUILD,
+        "ready_to_quote": core_ok,
+        "ready_to_take_payment": core_ok and checks["paystack_key_set"]
+                                 and "payment_events" not in missing,
+        "blockers": blockers or ["none — everything needed is in place"],
+        "checks": checks,
+        "tables": tables,
+        "model": engine.MODEL,
+        "paystack_mode": ("test" if paystack_key.startswith("sk_test_")
+                          else "live" if paystack_key else "unset"),
+        "base_url": public_base_url(),
+    }
+
+
 @router.get("/quotebot/status")
 def status(key: str = ""):
     """What build is live, how it is configured, whether the migration was run, and

@@ -40,7 +40,7 @@ router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which build
 # Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-7 (2026-08-20, rebuilt: postgres state, model conversation, fpdf2)"
+BUILD = "quotebot-8 (2026-08-21, roles fixed one-way: the allowlist decides, always)"
 
 
 def _ack() -> Response:
@@ -172,25 +172,28 @@ def _lock_for(number: str) -> threading.Lock:
 def _role_of(sender: str):
     """Is this person quoting, or being quoted? Returns (role, quote).
 
-    Decided by DATA before config. Anyone holding a quote that SOMEONE ELSE sent them
-    is a customer replying, whatever the allowlist says — and that stays true even if
-    they are themselves a listed technician.
+    The allowlist decides, and nothing overrides it. A number in QUOTE_TECHNICIANS is
+    always the technician. Only a number that is NOT on that list can ever be treated
+    as a customer, and it takes a quote actually addressed to it to do so.
 
-    That last part is what lets both phones sit in QUOTE_TECHNICIANS at once. Whichever
-    one sends a job is the technician for it, and whichever one receives the quote is
-    the customer when they reply. Useful in the field, where a technician can perfectly
-    well be quoted by a colleague; essential for recording a demo, where the roles need
-    to swap between takes without editing a Railway variable each time.
+    This used to be decided by the data instead — whoever held a quote that someone
+    else had sent them was read as a customer, even if they were themselves listed —
+    so that both phones could play both parts while recording. It backfired exactly
+    where it mattered. Once one take had quoted Heinrich's own phone, that row sat in
+    the table, and every message he sent from then on was answered as a customer
+    reply. There was no way back into the technician seat short of deleting the row.
 
-    A quote someone sent to THEMSELVES never flips them into the customer seat, or a
-    technician testing on his own number could never send a second job.
+    One direction, fixed by config, is also the truthful rule for the business it runs
+    for: FIXITT's technicians issue quotes and customers receive them. A technician
+    being quoted by a colleague is a curiosity, not a use case, and it is not worth
+    the failure mode above.
     """
-    quote = store.latest_quote_for_phone(sender)
-    if quote and quote.get("quoted_by_number") != sender:
-        return "customer", quote
-
     if _is_technician(sender):
         return "technician", None
+
+    quote = store.latest_quote_for_phone(sender)
+    if quote:
+        return "customer", quote
 
     if not QUOTE_TECHNICIANS:
         # Demo mode: no allowlist set, so anyone reaching the sandbox may quote.
@@ -327,6 +330,26 @@ def ready():
         blockers.append("PAYSTACK_SECRET_KEY is not set — quotes still go out, just "
                         "with no payment link.")
 
+    # The one way this routing can be misconfigured, and it is silent otherwise: a
+    # number on the allowlist is ALWAYS the technician, so a quote sent to it can
+    # never be replied to. The reply is read as the start of a new job instead, and
+    # the customer half of the demo simply never happens. Detected, not guessed —
+    # this only fires when a quote has actually been issued to a listed number. No
+    # phone number is returned, so it stays safe on an unguarded endpoint.
+    quoted_technicians = 0
+    for number in QUOTE_TECHNICIANS:
+        try:
+            if store.latest_quote_for_phone(number):
+                quoted_technicians += 1
+        except Exception:
+            break
+    if quoted_technicians:
+        blockers.append(
+            f"{quoted_technicians} of the {len(QUOTE_TECHNICIANS)} allowlisted "
+            "technician numbers has been sent a quote. A listed number is always the "
+            "technician, so its reply will be read as a NEW job, not as an answer. "
+            "Remove it from QUOTE_TECHNICIANS if it is meant to be the customer.")
+
     # Quotes still work without the payment side, so 'ready' does not depend on it.
     core_ok = (checks["quote_bot_enabled"] and checks["anthropic_key_set"]
                and checks["twilio_auth_set"] and checks["twilio_sender_set"]
@@ -340,6 +363,15 @@ def ready():
                                  and "payment_events" not in missing,
         "blockers": blockers or ["none — everything needed is in place"],
         "checks": checks,
+        "roles": {
+            "technicians_listed": len(QUOTE_TECHNICIANS),
+            "rule": ("A listed number is ALWAYS the technician. Anyone else holding a "
+                     "quote from the last 60 days is the customer. Everyone else is "
+                     "told to call the office."
+                     if QUOTE_TECHNICIANS else
+                     "No allowlist set — ANY number that reaches this bot may issue "
+                     "quotes. Fine for a sandbox, wrong for a real business."),
+        },
         "tables": tables,
         "model": engine.MODEL,
         "env_with_stray_quotes": dirty,

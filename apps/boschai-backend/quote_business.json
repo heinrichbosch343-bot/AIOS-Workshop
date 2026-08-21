@@ -42,10 +42,9 @@
     "accepted": "That's great, thank you! We've got it — someone from {business} will call you shortly to book a date.",
     "other": "Thanks {first_name}, we've got your message. Someone from {business} will come back to you shortly."
   },
-  "_technicians_note": "WhatsApp number -> the name printed under 'Quoted by' on the document. This map is for the NAME only; who is ALLOWED to quote is QUOTE_TECHNICIANS on Railway. Both demo numbers are listed so the roles can be swapped between takes without the document suddenly printing a bare phone number instead of a person.",
+  "_technicians_note": "Display names for the numbers that issue quotes — this is what prints under 'Quoted by'. Only list a number that really is a technician. It must be the same set as QUOTE_TECHNICIANS on Railway, and a listed number can never be treated as a customer, so a phone that is meant to RECEIVE quotes belongs in neither.",
   "technicians": {
-    "+27712824797": "Heinrich Bosch",
-    "+27763897179": "Heinrich Bosch"
+    "+27712824797": "Heinrich Bosch"
   },
   "_payment_note": "The deposit link that travels with the quote. deposit_percent 50 means the customer is asked for half up front; set it to 100 to ask for the full amount, or 0 to turn the link off entirely without touching code. Nothing here decides anything on its own -- services/payments.py only builds a link for the amount it is handed. THIS IS A BUSINESS DECISION FOR ZAHEER: emergency callouts are usually settled on completion, while fabricated work needs materials paid for up front.",
   "payment": {

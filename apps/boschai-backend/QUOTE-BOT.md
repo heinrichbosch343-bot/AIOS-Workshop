@@ -71,11 +71,14 @@ stranger's phone.
 | `routes/whatsapp.py` | HTTP edge: webhook, signature, idempotency, routing, public quote URLs |
 | `services/quote_engine.py` | The conversation: the model call, the state machine, issuing |
 | `services/quote_doc.py` | The PDF (fpdf2), the web page, and every word the customer reads |
-| `services/quote_store.py` | All Supabase access — sessions, messages, quotes |
+| `services/quote_store.py` | All Supabase access — sessions, messages, quotes, payment events |
+| `services/payments.py` | Paystack: the link, the verification, the signature |
+| `routes/payments.py` | The Paystack webhook and the payment status endpoint |
 | `services/quote_selftest.py` | 13 real technician messages, run against the real model |
 | `services/whatsapp.py` | Twilio send, with the error codes worth naming |
 | `quote_business.json` | **All copy and business detail. Edit here, never in code.** |
 | `db/migrations/014_quote_bot.sql` | The schema. Not optional. |
+| `db/migrations/015_quote_payments.sql` | Payment columns + the webhook log. |
 
 ---
 
@@ -104,6 +107,71 @@ answering something you sent ten minutes ago and ignoring what you just typed. S
 
 ---
 
+## The payment link
+
+The quote arrives with a deposit link already in it. She taps, pays, and the technician
+and the office both know within seconds.
+
+```
+To get started, the deposit is *R 5 750.00* — you can pay it securely here:
+https://checkout.paystack.com/wizamgma8xdz9h4
+```
+
+**Paystack**, chosen for one reason: it is the only South African gateway with a clean
+API for *creating a link per quote from a server*. Yoco is cheaper on card (2.55% flat
+vs 2.9% + R1) and PayFast has more local payment methods including Instant EFT, but
+neither generates links programmatically as cleanly, and that is the whole job here.
+
+**The deposit policy lives in `quote_business.json`, not in code.** `deposit_percent`
+50 asks for half; 100 asks for the whole amount and the wording changes from "deposit"
+to "payment" on its own; 0 or `enabled: false` turns links off entirely without a
+deploy. **This is Zaheer's decision, not ours** — emergency callouts are usually
+settled on completion, while fabricated work needs materials paid for up front.
+
+### Money is Decimal, never float
+
+`to_cents` and `deposit_for` both use `Decimal(str(x))` with `ROUND_HALF_UP`. This is
+not fastidiousness. In plain floats, half of R2 499.99 comes out as R1 249.99 rather
+than R1 250.00, because 1249.995 is really 1249.99499… once stored — and then the
+deposit plus the balance no longer add up to the quote. A test asserts that invariant
+across seven awkward totals.
+
+### The webhook has three defences
+
+It marks a customer's money as received, so:
+
+1. **Signature** — Paystack signs the raw body with the secret key, HMAC-SHA512.
+   Computed over the exact bytes received; re-serialising the JSON first changes key
+   order and it will never match. Unsigned, this endpoint is a button that marks any
+   quote paid.
+2. **Idempotency** — `payment_events.event_id` is UNIQUE. Gateways retry hard, and
+   thanking a customer twice while the office reconciles a payment that never happened
+   is worse than being slow.
+3. **Verification** — the webhook body is only a hint. Before anything is written down
+   we ask Paystack directly what happened to that reference. A webhook is something
+   that arrived over the internet; `verify()` is the truth. A body claiming success for
+   a card that actually failed is recorded as failed.
+
+### Two deliberate choices
+
+**The PDF never carries the payment link.** A PDF gets forwarded, printed and filed,
+and a live payment URL sitting in a filing cabinet is a way to be paid twice for one
+job. The document names the deposit; the link lives on WhatsApp and on the quote page.
+
+**A gateway outage never withholds the quote.** If Paystack is down the quote still
+goes out, the technician is told there is no link, and the office chases that one
+payment the old way. The quote is what the customer has been waiting days for.
+
+### Checking it
+
+`GET /quotebot/payments?key=…` — whether it is configured, **whether the key is TEST or
+LIVE**, the deposit policy, and the last 15 events. The test/live line matters: a test
+key produces checkout pages indistinguishable from the real thing that move no money at
+all, which is the thing to find out before a demo rather than during one.
+
+
+---
+
 ## Setting it up
 
 1. **Run `db/migrations/014_quote_bot.sql`** in the Supabase SQL editor. The bot's
@@ -112,7 +180,10 @@ answering something you sent ten minutes ago and ignoring what you just typed. S
    plus the three `TWILIO_*` values. See `.env.example`.
 3. **Twilio:** point the sandbox's "When a message comes in" at
    `https://<host>/webhook/whatsapp`, method POST.
-4. **Every phone in the demo must join the sandbox** — send the join code from it
+4. **Paystack:** set `PAYSTACK_SECRET_KEY` on Railway, and in the Paystack dashboard
+   point the webhook at `https://<host>/webhook/paystack`. Run
+   `db/migrations/015_quote_payments.sql` too.
+5. **Every phone in the demo must join the sandbox** — send the join code from it
    once. The sandbox silently refuses numbers that have not. No code can work around
    this.
 

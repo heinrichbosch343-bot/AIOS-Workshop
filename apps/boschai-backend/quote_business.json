@@ -1,6 +1,5 @@
 {
   "_comment": "Everything the quote document and the customer's message say about the business. Edit here, never in code — same convention as outputs/crm/offers.json and voice-scripts.json. Swapping this file is how the same system serves a different client.",
-
   "name": "FIXITT Glass & Aluminium",
   "short_name": "FIXITT",
   "tagline": "Glass and aluminium, 24 hours a day, 365 days a year",
@@ -12,47 +11,55 @@
   "phone": "087 153 6444",
   "email": "zaheer@fixittglass.co.za",
   "website": "fixittglass.co.za",
-
   "quote_prefix": "FQ",
   "validity_days": 30,
   "currency": "ZAR",
-
   "_vat_note": "Left off until Zaheer confirms. Set vat_registered true and fill vat_number, and prices are then treated as VAT-inclusive. Never invent a VAT number.",
   "vat_registered": false,
   "vat_number": "",
-
   "promises": [
     "Two-year guarantee on spares and workmanship",
     "We'll beat any written quote by 5%",
     "Emergency callouts, 24 hours a day, 365 days a year"
   ],
-
   "terms": "This quote is valid for {validity_days} days from the date of issue. Prices assume access to the opening as inspected on site. Any additional work found on the day will be quoted separately and agreed with you before it is carried out.",
-
   "_customer_message_note": "The WhatsApp the customer receives. {first_name} {business} {quote_number} {total} {validity_days} {phone} are filled in; the line items and total are rendered by code so the figures always match the PDF.",
   "customer_message": {
-    "greeting": "Hi {first_name} \ud83d\udc4b",
+    "greeting": "Hi {first_name} 👋",
     "thanks": "Thank you for choosing {business}.",
-    "intro": "Here's the quote for the work we looked at today \u2014 *{quote_number}*.",
+    "intro": "Here's the quote for the work we looked at today — *{quote_number}*.",
     "attached": "The full quote is attached. It's valid for {validity_days} days.",
     "cta": "Reply *YES* and we'll book the installation.",
-    "signoff": "{business} \u00b7 {phone}"
+    "signoff": "{business} · {phone}"
   },
-
   "_customer_email_note": "Sent alongside the WhatsApp when the technician gives an email address, with the same PDF attached.",
   "customer_email": {
-    "subject": "Your quote from {business} \u2014 {quote_number}",
-    "body": "Hi {first_name},\n\nThank you for choosing {business}.\n\nYour quote for the work we looked at today is attached \u2014 {quote_number}, total {total}. It's valid for {validity_days} days.\n\n{promises}\n\nJust reply to this email or give us a call on {phone} and we'll book the installation.\n\n{business}\n{phone}\n{email}"
+    "subject": "Your quote from {business} — {quote_number}",
+    "body": "Hi {first_name},\n\nThank you for choosing {business}.\n\nYour quote for the work we looked at today is attached — {quote_number}, total {total}. It's valid for {validity_days} days.\n\n{promises}\n\nJust reply to this email or give us a call on {phone} and we'll book the installation.\n\n{business}\n{phone}\n{email}"
   },
-
   "_reply_note": "What the customer gets back when they reply to the quote.",
   "customer_reply_ack": {
-    "accepted": "That's great, thank you! We've got it \u2014 someone from {business} will call you shortly to book a date.",
+    "accepted": "That's great, thank you! We've got it — someone from {business} will call you shortly to book a date.",
     "other": "Thanks {first_name}, we've got your message. Someone from {business} will come back to you shortly."
   },
-
   "_technicians_note": "WhatsApp number -> the name printed under 'Quoted by'. Anyone not listed still works (unless QUOTE_TECHNICIANS restricts it); their number is printed instead.",
   "technicians": {
     "+27712824797": "Heinrich Bosch"
+  },
+  "_payment_note": "The deposit link that travels with the quote. deposit_percent 50 means the customer is asked for half up front; set it to 100 to ask for the full amount, or 0 to turn the link off entirely without touching code. Nothing here decides anything on its own -- services/payments.py only builds a link for the amount it is handed. THIS IS A BUSINESS DECISION FOR ZAHEER: emergency callouts are usually settled on completion, while fabricated work needs materials paid for up front.",
+  "payment": {
+    "enabled": true,
+    "deposit_percent": 50,
+    "send_with_quote": true,
+    "_label_note": "{deposit} and {total} are filled by code; never write a figure here.",
+    "quote_line": "To get started, the deposit is *{deposit}* — you can pay it securely here:",
+    "accept_line": "Here's the secure link for the *{deposit}* deposit:",
+    "full_quote_line": "You can pay securely here — *{deposit}*:",
+    "full_accept_line": "Here's the secure payment link — *{deposit}*:",
+    "paid_ack": "Payment received, thank you! We'll be in touch shortly to book the date.",
+    "web_button": "Pay the {deposit} deposit",
+    "web_button_full": "Pay {deposit} securely",
+    "pdf_line": "A secure payment link for the {deposit} deposit was sent with this quote on WhatsApp.",
+    "pdf_line_full": "A secure payment link for {deposit} was sent with this quote on WhatsApp."
   }
 }

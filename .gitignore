@@ -52,3 +52,6 @@ takeout-*/
 
 # --- Node (if applicable) ---
 node_modules/
+
+# Claude Code personal settings (permission grants) - never commit
+.claude/settings.local.json

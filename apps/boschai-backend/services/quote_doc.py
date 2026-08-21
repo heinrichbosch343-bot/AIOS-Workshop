@@ -13,6 +13,7 @@ not close.
 import json
 import re
 from datetime import date, datetime
+from decimal import ROUND_HALF_UP, Decimal
 from functools import lru_cache
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -177,9 +178,49 @@ def summary_card(job: dict) -> str:
 
 # ───────────────────────────────────────────── what the customer sees on WhatsApp
 
+def payment_policy() -> dict:
+    return business().get("payment") or {}
+
+
+def deposit_for(quote: dict):
+    """What the customer is asked for up front, in rand — or None for no link at all.
+
+    `deposit_percent` 0 (or `enabled` false) switches payments off without touching
+    code, which is how Zaheer turns it off for a job type that is settled on
+    completion. Nothing else in the system decides whether to charge.
+    """
+    policy = payment_policy()
+    if not policy.get("enabled"):
+        return None
+    percent = Decimal(str(policy.get("deposit_percent") or 0))
+    total = Decimal(str(quote.get("total") or 0))
+    if percent <= 0 or total <= 0:
+        return None
+    # Decimal and ROUND_HALF_UP, matching services/payments.to_cents exactly. Half of
+    # R2 499.99 is R1 249.995, and in plain floats round() answers R1 249.99 -- the
+    # deposit and the balance then no longer add up to the quote.
+    return float((total * percent / 100).quantize(Decimal("0.01"),
+                                                  rounding=ROUND_HALF_UP))
+
+
+def deposit_is_full(quote: dict = None) -> bool:
+    """At 100% it is not a deposit, it is the bill — and calling it a deposit on a
+    customer's phone is the kind of small wrongness that costs trust."""
+    return float(payment_policy().get("deposit_percent") or 0) >= 100
+
+
+def _payment_copy(quote: dict, key: str) -> str:
+    """Pick the deposit or the full-amount wording for the same slot."""
+    policy = payment_policy()
+    return policy.get(f"full_{key}" if deposit_is_full() else key, "")
+
+
 def _fill(template: str, quote: dict) -> str:
     biz = business()
+    deposit = deposit_for(quote)
     return (str(template)
+            .replace("{deposit}", fmt_money(deposit, quote.get("currency", "ZAR"))
+                     if deposit is not None else "")
             .replace("{first_name}", first_name(quote.get("customer_name")))
             .replace("{business}", biz["name"])
             .replace("{short_name}", biz.get("short_name", biz["name"]))
@@ -190,9 +231,11 @@ def _fill(template: str, quote: dict) -> str:
             .replace("{email}", biz.get("email", "")))
 
 
-def customer_message(quote: dict, link: str = "", with_attachment: bool = True) -> str:
+def customer_message(quote: dict, link: str = "", with_attachment: bool = True,
+                     payment_url: str = "") -> str:
     """The WhatsApp the customer gets. The copy comes from quote_business.json; the
-    line items and total are rendered here so they always match the attached PDF."""
+    line items, the total and the deposit are rendered here so they always match the
+    attached PDF and the amount the payment link actually charges."""
     biz = business()
     copy = biz["customer_message"]
     currency = quote.get("currency", "ZAR")
@@ -220,6 +263,9 @@ def customer_message(quote: dict, link: str = "", with_attachment: bool = True) 
     for promise in biz.get("promises", []):
         parts.append(f"✓ {promise}")
 
+    if payment_url:
+        parts += ["", _fill(_payment_copy(quote, "quote_line"), quote), payment_url]
+
     parts += ["", _fill(copy["cta"], quote), "", _fill(copy["signoff"], quote)]
     return "\n".join(parts)
 
@@ -235,9 +281,22 @@ def customer_email(quote: dict, link: str = "") -> tuple:
     return _fill(copy["subject"], quote), body
 
 
-def customer_ack(quote: dict, accepted: bool) -> str:
+def customer_ack(quote: dict, accepted: bool, payment_url: str = "") -> str:
+    """What the customer hears back when they reply.
+
+    A yes with an unpaid link attached gets the link again. Saying yes and then waiting
+    for someone to send banking details is the same failure as a quote that never
+    arrives, one step later on.
+    """
     copy = business()["customer_reply_ack"]
-    return _fill(copy["accepted" if accepted else "other"], quote)
+    text = _fill(copy["accepted" if accepted else "other"], quote)
+    if accepted and payment_url:
+        text += "\n\n" + _fill(_payment_copy(quote, "accept_line"), quote) + "\n" + payment_url
+    return text
+
+
+def payment_received_ack(quote: dict) -> str:
+    return _fill(payment_policy().get("paid_ack", "Payment received, thank you."), quote)
 
 
 # ────────────────────────────────────────────────────────────────────────── the PDF
@@ -390,8 +449,15 @@ def render_pdf(quote: dict) -> bytes:
     terms = biz.get("terms", "").replace("{validity_days}",
                                          str(biz.get("validity_days", 30)))
     y = pdf.para(15, y, 180, terms, size=8, color=MUTED) + 2
-    pdf.para(15, y, 180, biz["customer_message"]["cta"].replace("*", ""),
-             size=8.5, color=(45, 54, 66))
+    y = pdf.para(15, y, 180, biz["customer_message"]["cta"].replace("*", ""),
+                 size=8.5, color=(45, 54, 66))
+
+    # The document names the deposit but never carries the link itself: a PDF gets
+    # forwarded, printed and filed, and a live payment URL sitting in a filing cabinet
+    # is a way to be paid twice for one job.
+    if quote.get("payment_url") and deposit_for(quote) is not None:
+        pdf.para(15, y, 180, _fill(_payment_copy(quote, "pdf_line"), quote),
+                 size=8.5, color=(45, 54, 66))
 
     # ── footer
     pdf.rule(15, 277, 180)
@@ -428,6 +494,18 @@ def render_html(quote: dict, pdf_url: str = "") -> str:
         _esc(quote.get("customer_email")), _esc(quote.get("site_address"))) if x)
     download = (f'<a class="dl" href="{_esc(pdf_url)}">Download the PDF</a>'
                 if pdf_url else "")
+
+    # The pay button leads, because a customer who opened this page has already decided
+    # to look. Only rendered while the quote is actually unpaid -- showing "Pay now" on
+    # something already settled is how you get an angry phone call.
+    pay = ""
+    deposit = deposit_for(quote)
+    if quote.get("payment_url") and deposit is not None and quote.get("payment_status") != "paid":
+        label = _fill(_payment_copy(quote, "web_button"), quote)
+        pay = (f'<a class="pay" href="{_esc(quote["payment_url"])}">{_esc(label)}</a>'
+               f'<p class="secure">Secured by Paystack. Card payments in ZAR.</p>')
+    elif quote.get("payment_status") == "paid":
+        pay = '<div class="paid">Paid — thank you</div>' 
     terms = _esc(biz.get("terms", "").replace("{validity_days}",
                                               str(biz.get("validity_days", 30))))
     cta = _esc(biz["customer_message"]["cta"].replace("*", ""))
@@ -463,6 +541,12 @@ def render_html(quote: dict, pdf_url: str = "") -> str:
         "height:7px;border-radius:50%;background:var(--accent)}"
         ".dl{display:block;text-align:center;background:var(--accent);color:#fff;"
         "text-decoration:none;padding:14px;border-radius:9px;font-weight:600;margin:22px 0}"
+        ".pay{display:block;text-align:center;background:#0b8f4d;color:#fff;"
+        "text-decoration:none;padding:17px;border-radius:9px;font-weight:700;"
+        "font-size:17px;margin:24px 0 8px}"
+        ".secure{text-align:center;color:var(--muted);font-size:12px;margin:0 0 18px}"
+        ".paid{text-align:center;background:#e8f6ee;color:#0b6b3a;padding:15px;"
+        "border-radius:9px;font-weight:700;margin:24px 0}"
         ".terms{color:var(--muted);font-size:12.5px;margin-top:22px}"
         "footer{border-top:1px solid var(--rule);margin-top:26px;padding:18px 22px 40px;"
         "color:var(--muted);font-size:12px}"
@@ -480,7 +564,7 @@ def render_html(quote: dict, pdf_url: str = "") -> str:
         f"<table>{items}</table>"
         "<div class=\"total\"><span>Total</span>"
         f"<b>{_esc(fmt_money(quote.get('total'), currency))}</b></div>"
-        f"{download}<ul>{promises}</ul>"
+        f"{pay}{download}<ul>{promises}</ul>"
         f"<p class=\"terms\">{terms}</p><p class=\"terms\">{cta}</p>"
         "</main><footer>"
         f"{address}<br>{_esc(biz.get('phone', ''))} &middot; "

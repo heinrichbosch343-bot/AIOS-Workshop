@@ -22,6 +22,7 @@ from anthropic import Anthropic
 
 from config import public_base_url
 from services import quote_doc as doc
+from services import payments
 from services import quote_store as store
 from services import whatsapp
 
@@ -376,6 +377,105 @@ def _and_list(items: list) -> str:
 
 # ──────────────────────────────────────────────────────────────────── issuing
 
+def _attach_payment(quote_id, quote: dict) -> dict:
+    """Create the deposit link for a freshly issued quote and write it to its row.
+
+    Returns the fields to merge back into the in-memory quote. Deliberately swallows
+    every failure into `payment_error`: the quote is what the customer has been waiting
+    days for, and a Paystack outage is not a reason to withhold it. They get the quote,
+    the technician is told there is no link, and the office can chase payment the old
+    way for that one job.
+
+    `wa_payment_url` is set only when the link should ride along with the quote itself.
+    `send_with_quote: false` still creates the link — it just holds it back until they
+    say yes, which suits a considered purchase where "pay now" alongside the price
+    reads as pushy.
+    """
+    deposit = doc.deposit_for(quote)
+    if deposit is None or not payments.enabled():
+        reason = ("payments are switched off in quote_business.json"
+                  if deposit is None else "PAYSTACK_SECRET_KEY is not set")
+        store.update_quote(quote_id, {"payment_status": "skipped",
+                                      "payment_error": reason})
+        return {"payment_status": "skipped", "payment_error": reason}
+
+    reference = payments.new_reference(quote["quote_number"])
+    # Paystack requires an email and sends the receipt there. Most jobs are quoted with
+    # a phone number only, so a synthetic address keeps the link working rather than
+    # failing over a field the customer never gave us.
+    email = quote.get("customer_email") or f"{reference.lower()}@quotes.invalid"
+
+    try:
+        created = payments.create_link(
+            amount_rand=deposit, email=email, reference=reference, quote=quote,
+            callback_url=f"{public_base_url()}/q/{quote['token']}")
+    except Exception as exc:
+        error = str(exc)[:300]
+        print(f"[quotebot] payment link failed for {quote['quote_number']}: {error}",
+              flush=True)
+        store.update_quote(quote_id, {"payment_status": "failed",
+                                      "deposit_amount": deposit,
+                                      "payment_error": error})
+        return {"payment_status": "failed", "payment_error": error,
+                "deposit_amount": deposit}
+
+    fields = {"deposit_amount": deposit, "payment_reference": created["reference"],
+              "payment_url": created["url"], "payment_status": "unpaid",
+              "payment_error": None}
+    store.update_quote(quote_id, fields)
+
+    if payments.is_test_key():
+        # Impossible to tell apart from the real thing by looking at it, and the whole
+        # point of a demo is that everything else looks real.
+        print(f"[quotebot] TEST-MODE payment link for {quote['quote_number']} "
+              f"— no money will move", flush=True)
+
+    policy = doc.payment_policy()
+    return {**fields,
+            "wa_payment_url": created["url"] if policy.get("send_with_quote") else ""}
+
+
+def payment_received(quote: dict, amount_rand: float, channel: str = "") -> None:
+    """A confirmed payment: thank the customer, tell the technician, ping the office.
+
+    Only ever called after services/payments.verify() has asked Paystack directly. A
+    webhook body is just something that arrived over the internet, and this function
+    tells a customer their money is in.
+    """
+    from services.notify import send_telegram
+
+    paid = doc.fmt_money(amount_rand, quote.get("currency", "ZAR"))
+    number = quote.get("quote_number")
+    name = quote.get("customer_name") or "the customer"
+
+    if quote.get("customer_phone"):
+        try:
+            say(quote["customer_phone"], doc.payment_received_ack(quote))
+        except Exception as exc:
+            print(f"[quotebot] could not thank {quote['customer_phone']}: {exc}", flush=True)
+
+    technician = quote.get("quoted_by_number")
+    if technician:
+        try:
+            outstanding = float(quote.get("total") or 0) - float(amount_rand)
+            note = [f"💰 *PAID* — {paid} received", "",
+                    f"*{number}* · {name}"]
+            if outstanding > 0.005:
+                note.append("Balance still due: "
+                            f"{doc.fmt_money(outstanding, quote.get('currency', 'ZAR'))}")
+            if channel:
+                note.append(f"Paid by {channel}")
+            say(technician, "\n".join(note))
+        except Exception as exc:
+            print(f"[quotebot] could not notify {technician}: {exc}", flush=True)
+
+    try:
+        send_telegram(f"💰 <b>Payment received</b> — {paid} on {number} "
+                      f"({name})")
+    except Exception:
+        pass
+
+
 def issue(technician: str, session: dict) -> None:
     """Number it, render it, send it to the customer, tell the technician and the office.
 
@@ -415,11 +515,17 @@ def issue(technician: str, session: dict) -> None:
     saved = store.insert_quote({**quote, "whatsapp_status": "pending"})
     quote_id = saved.get("id")
 
+    # The payment link, created before anything goes out so it can travel with the
+    # quote. Best effort by design: a gateway outage must not stop the quote itself
+    # from reaching the customer, because the quote is the thing they are waiting for.
+    quote.update(_attach_payment(quote_id, quote))
+
     # WhatsApp — the one that matters.
     wa_status, wa_error = "sent", None
     try:
         whatsapp.send_media(quote["customer_phone"],
-                            doc.customer_message(quote, link, with_attachment=True),
+                            doc.customer_message(quote, link, with_attachment=True,
+                                                 payment_url=quote.get("wa_payment_url", "")),
                             pdf_url)
     except Exception as exc:
         wa_status, wa_error = "failed", str(exc)[:400]
@@ -461,6 +567,12 @@ def issue(technician: str, session: dict) -> None:
         elif email_status == "failed":
             lines.append(f"→ Email to {quote['customer_email']} didn't go — "
                          f"{email_error}")
+        if quote.get("wa_payment_url"):
+            deposit = doc.fmt_money(quote.get("deposit_amount"), quote["currency"])
+            noun = "payment" if doc.deposit_is_full() else "deposit"
+            lines.append(f"→ {deposit} {noun} link included ✓")
+        elif quote.get("payment_error"):
+            lines.append(f"→ No payment link — {quote['payment_error']}")
         lines += ["", link]
         say(technician, "\n".join(lines))
     else:
@@ -512,8 +624,15 @@ def handle_customer(customer: str, body: str, quote: dict, message_sid: str = ""
     store.record_decision(message_sid, {"role": "customer", "accepted": accepted,
                                         "quote": quote["quote_number"]})
 
+    # A yes on an unpaid quote gets the payment link back immediately. Saying yes and
+    # then waiting for someone to send banking details is the same failure as a quote
+    # that never arrives, one step further along.
+    pay_url = ""
+    if accepted and quote.get("payment_status") == "unpaid":
+        pay_url = quote.get("payment_url") or ""
+
     try:
-        say(customer, doc.customer_ack(quote, accepted), role="bot")
+        say(customer, doc.customer_ack(quote, accepted, pay_url), role="bot")
     except Exception as exc:
         print(f"[quotebot] could not acknowledge {customer}: {exc}", flush=True)
 

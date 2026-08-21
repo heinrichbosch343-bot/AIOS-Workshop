@@ -226,13 +226,66 @@ def open_quotes(older_than_days: int = 3) -> list:
             .order("sent_at", desc=True).execute()).data or []
 
 
+# ─────────────────────────────────────────────────────────────────────── payments
+
+def quote_by_payment_reference(reference: str):
+    """How a Paystack webhook finds its quote."""
+    if not reference:
+        return None
+    rows = (_db().table("quotes").select("*").eq("payment_reference", reference)
+            .limit(1).execute()).data
+    return rows[0] if rows else None
+
+
+def log_payment_event(*, event_id: str, event: str, reference: str, amount,
+                      currency: str, status: str, payload: dict) -> bool:
+    """Record a payment webhook. Returns False if we have already handled it.
+
+    Same shape as log_inbound, and for the same reason: `event_id` is UNIQUE, so a
+    Paystack retry inserts zero rows and the handler stops. Payment gateways retry
+    hard, and marking one payment received twice is how a customer gets thanked twice
+    and the office reconciles a payment that never happened.
+    """
+    row = {"event_id": event_id, "event": event, "reference": reference,
+           "amount": amount, "currency": currency, "status": status,
+           "payload": payload}
+    try:
+        _db().table("payment_events").insert(row).execute()
+        return True
+    except Exception as exc:
+        if _is_duplicate(exc):
+            return False
+        # Unlike the inbound log, a failure here is NOT waved through. This gate is the
+        # only thing standing between a Paystack retry and a customer being told twice
+        # that their money is in, so if it cannot do its job the event is not processed.
+        print(f"[payments] could not log event {event_id}: {exc}", flush=True)
+        return False
+
+
+def recent_payment_events(limit: int = 15) -> list:
+    try:
+        return (_db().table("payment_events")
+                .select("created_at,event,reference,amount,currency,status")
+                .order("created_at", desc=True).limit(limit).execute()).data or []
+    except Exception as exc:
+        return [{"error": str(exc)}]
+
+
+def unpaid_quotes(older_than_days: int = 2) -> list:
+    """Accepted, link sent, still not paid. One step further along than open_quotes()."""
+    cutoff = (datetime.now(TZ) - timedelta(days=older_than_days)).isoformat()
+    return (_db().table("quotes").select("*")
+            .eq("payment_status", "unpaid").lte("sent_at", cutoff)
+            .order("sent_at", desc=True).execute()).data or []
+
+
 # ──────────────────────────────────────────────────────────────────────── health
 
 def health() -> dict:
     """Which tables are actually reachable. When the bot is quiet, the first question
     is always whether the migration was run — this answers it without a browser."""
     out = {}
-    for table in ("quote_sessions", "quote_messages", "quotes"):
+    for table in ("quote_sessions", "quote_messages", "quotes", "payment_events"):
         try:
             _db().table(table).select("*").limit(1).execute()
             out[table] = "ok"

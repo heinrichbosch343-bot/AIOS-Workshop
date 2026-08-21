@@ -68,17 +68,84 @@ NOT_FOR_YOU = ("Thanks for the message. This number only handles quotes for our 
 
 # ────────────────────────────────────────────────────────────────────── security
 
-def _valid_signature(request: Request, form: dict, url: str) -> bool:
+def _signed_url_candidates(request: Request) -> list:
+    """Every URL Twilio might plausibly have signed.
+
+    Twilio computes its signature over the exact URL it POSTed to, so ours has to match
+    that string character for character. Three things routinely make it differ:
+
+      - Railway terminates TLS and forwards over http, so request.url says "http://"
+        while Twilio signed "https://".
+      - The console URL may or may not carry a trailing slash or a query string.
+      - PUBLIC_BASE_URL may be set to something slightly different from the host header.
+
+    A mismatch is indistinguishable from an attack: 403, no reply, a bot that looks
+    dead. One stray quote in PUBLIC_BASE_URL already caused exactly that. So rather than
+    betting on one reconstruction, we check the handful that are all legitimately OURS.
+    This is not a weakening — every candidate is a URL on our own host, and the request
+    still has to carry a signature validly made with our auth token for one of them.
+    """
+    path = request.url.path
+    query = f"?{request.url.query}" if request.url.query else ""
+    host = request.headers.get("host", "").strip()
+    proto = request.headers.get("x-forwarded-proto", "https").split(",")[0].strip()
+
+    bases = [
+        public_base_url() + path,
+        f"{proto}://{host}{path}" if host else "",
+        f"https://{host}{path}" if host else "",
+        str(request.url).split("?")[0],
+        str(request.url).split("?")[0].replace("http://", "https://", 1),
+    ]
+
+    # Both with and without a trailing slash — the console URL may carry one, and
+    # Twilio signs it exactly as configured.
+    forms = []
+    for base in bases:
+        if not base:
+            continue
+        bare = base.rstrip("/")
+        forms += [bare, bare + "/"]
+
+    # The query string, when there is one, is part of what Twilio signed.
+    candidates = [f + query for f in forms] if query else forms
+
+    seen, out = set(), []
+    for c in candidates:
+        if c and c not in seen:
+            seen.add(c)
+            out.append(c)
+    return out
+
+
+# The last time a signature was refused, and what we compared against. No token and no
+# message body — just the URLs — so /quotebot/ready can show it without leaking anything.
+_LAST_REJECTION = {}
+
+
+def _valid_signature(request: Request, form: dict) -> bool:
     """Twilio signs every webhook: HMAC-SHA1 over the full URL plus the sorted POST
     params, keyed on the auth token. Without this the endpoint is an open megaphone
     that sends WhatsApp messages on demand, billed to us."""
     signature = request.headers.get("X-Twilio-Signature", "")
     token = clean_env("TWILIO_AUTH_TOKEN")
     if not signature or not token:
+        _LAST_REJECTION.update({"at": doc.now_iso(),
+                                "why": "no signature header" if not signature
+                                       else "TWILIO_AUTH_TOKEN not set", "tried": []})
         return False
-    payload = url + "".join(k + str(form[k]) for k in sorted(form))
-    digest = hmac.new(token.encode(), payload.encode("utf-8"), hashlib.sha1).digest()
-    return hmac.compare_digest(base64.b64encode(digest).decode(), signature)
+
+    params = "".join(k + str(form[k]) for k in sorted(form))
+    for url in _signed_url_candidates(request):
+        digest = hmac.new(token.encode(), (url + params).encode("utf-8"),
+                          hashlib.sha1).digest()
+        if hmac.compare_digest(base64.b64encode(digest).decode(), signature):
+            _LAST_REJECTION.clear()
+            return True
+
+    _LAST_REJECTION.update({"at": doc.now_iso(), "why": "no candidate URL matched",
+                            "tried": _signed_url_candidates(request)})
+    return False
 
 
 def _is_technician(number: str) -> bool:
@@ -157,7 +224,7 @@ async def inbound(request: Request, background: BackgroundTasks):
     sid = str(form.get("MessageSid", "")).strip()
 
     if WHATSAPP_VALIDATE_SIGNATURE:
-        if not _valid_signature(request, form, public_base_url() + request.url.path):
+        if not _valid_signature(request, form):
             print(f"[quotebot] rejected: bad Twilio signature (sid {sid[-8:]})", flush=True)
             return Response(status_code=403)
 
@@ -254,6 +321,7 @@ def ready():
         "tables": tables,
         "model": engine.MODEL,
         "env_with_stray_quotes": dirty,
+        "last_signature_rejection": _LAST_REJECTION or "none since restart",
         "twilio_sender": clean_env("TWILIO_WHATSAPP_FROM") or "(unset)",
         "paystack_mode": ("test" if paystack_key.startswith("sk_test_")
                           else "live" if paystack_key else "unset"),

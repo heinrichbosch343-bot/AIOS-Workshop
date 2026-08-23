@@ -40,7 +40,7 @@ router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which build
 # Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-14 (2026-08-23, traffic counters: is anything even reaching us)"
+BUILD = "quotebot-15 (2026-08-23, ask Twilio whether the replies actually arrived)"
 
 
 def _ack() -> Response:
@@ -430,10 +430,14 @@ def channels():
     from services import delivery_health
     result = delivery_health.all_channels()
     broken = [name for name, r in result.items() if not r.get("ok")]
+    # Credentials being accepted is not the same as messages arriving. This asks
+    # Twilio what actually happened to the last ones we sent.
+    deliveries = delivery_health.recent_deliveries(15)
     return {
         "build": BUILD,
-        "all_working": not broken,
+        "all_working": not broken and deliveries.get("ok", True),
         "not_working": broken or "none",
+        "delivery": deliveries,
         "channels": result,
     }
 

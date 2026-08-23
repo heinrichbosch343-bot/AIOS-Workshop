@@ -126,6 +126,75 @@ def payments_health() -> dict:
     return _cached("payments", check)
 
 
+def recent_deliveries(limit: int = 15) -> dict:
+    """What Twilio says actually HAPPENED to the last messages we sent.
+
+    Our own log records what we handed to Twilio, which is not the same thing at all.
+    Twilio accepts a send, returns 201, and then fails to deliver it asynchronously —
+    so a bot that looks like it is replying can be reaching nobody. That gap is
+    exactly where every "it doesn't work" afternoon has been spent.
+
+    Twilio knows the answer: each message carries a status (delivered / sent / failed /
+    undelivered) and an error code. 63015 and 63016 both mean the sandbox — the
+    recipient never joined, or their 24-hour window has closed.
+
+    Phone numbers are reduced to their last three digits. Enough to tell two demo
+    phones apart, not enough to be anyone's contact details on an open endpoint.
+    """
+    def check():
+        sid = clean_env("TWILIO_ACCOUNT_SID")
+        token = clean_env("TWILIO_AUTH_TOKEN")
+        if not sid or not token:
+            return {"ok": False, "detail": "Twilio credentials not set"}
+
+        resp = httpx.get(f"https://api.twilio.com/2010-04-01/Accounts/{sid}/Messages.json",
+                         params={"PageSize": limit}, auth=(sid, token), timeout=20)
+        if resp.status_code >= 400:
+            return {"ok": False, "detail": f"Twilio returned {resp.status_code}"}
+
+        from services.whatsapp import FRIENDLY, SANDBOX_HINT
+
+        messages, failures = [], 0
+        for m in (resp.json().get("messages") or [])[:limit]:
+            code = m.get("error_code")
+            status = m.get("status")
+            if status in ("failed", "undelivered"):
+                failures += 1
+            row = {
+                "at": m.get("date_sent") or m.get("date_created"),
+                "direction": "out" if str(m.get("direction", "")).startswith("outbound")
+                             else "in",
+                "to": "…" + str(m.get("to") or "")[-3:],
+                "status": status,
+            }
+            if code:
+                row["error_code"] = code
+                row["error"] = (FRIENDLY.get(int(code)) if str(code).isdigit()
+                                else None) or m.get("error_message") or ""
+                if str(code) in ("63015", "63016"):
+                    row["error"] = SANDBOX_HINT if str(code) == "63015" else row["error"]
+            messages.append(row)
+
+        undelivered = [m for m in messages
+                       if m["direction"] == "out"
+                       and m["status"] in ("failed", "undelivered")]
+        if undelivered:
+            codes = sorted({str(m.get("error_code")) for m in undelivered})
+            reading = (f"{len(undelivered)} of the last outbound messages did NOT reach "
+                       f"the phone (Twilio codes {', '.join(codes)}). The bot is "
+                       "replying; the replies are not arriving.")
+        elif any(m["direction"] == "out" for m in messages):
+            reading = ("Every recent outbound message was accepted and delivered by "
+                       "Twilio. If a phone still shows nothing, it is looking at a "
+                       "different chat or a different number.")
+        else:
+            reading = "Twilio has no recent outbound messages on this account."
+
+        return {"ok": failures == 0, "reading": reading, "messages": messages}
+
+    return _cached(f"deliveries-{limit}", check)
+
+
 def all_channels() -> dict:
     return {"whatsapp": whatsapp_health(),
             "email": email_health(),

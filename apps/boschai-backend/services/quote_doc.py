@@ -196,9 +196,18 @@ def deposit_for(quote: dict):
     total = Decimal(str(quote.get("total") or 0))
     if percent <= 0 or total <= 0:
         return None
-    # Decimal and ROUND_HALF_UP, matching services/payments.to_cents exactly. Half of
-    # R2 499.99 is R1 249.995, and in plain floats round() answers R1 249.99 -- the
-    # deposit and the balance then no longer add up to the quote.
+
+    # At 100% the answer is the total, exactly, with no arithmetic in between.
+    # Not a shortcut -- rounding it would be wrong. A total of R1 234.565 quantized
+    # HALF_UP comes back R1 234.57, which asks the customer for half a cent MORE than
+    # the job they agreed to. Rare, but "we charged you more than the quote" is the
+    # one arithmetic error a quoting system must never make.
+    if percent >= 100:
+        return float(total)
+
+    # Below 100, Decimal and ROUND_HALF_UP, matching services/payments.to_cents
+    # exactly. Half of R2 499.99 is R1 249.995, and in plain floats round() answers
+    # R1 249.99 -- the deposit and the balance then no longer add up to the quote.
     return float((total * percent / 100).quantize(Decimal("0.01"),
                                                   rounding=ROUND_HALF_UP))
 

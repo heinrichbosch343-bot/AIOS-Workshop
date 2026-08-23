@@ -46,10 +46,10 @@
   "technicians": {
     "+27763897179": "Heinrich Bosch"
   },
-  "_payment_note": "The deposit link that travels with the quote. deposit_percent 50 means the customer is asked for half up front; set it to 100 to ask for the full amount, or 0 to turn the link off entirely without touching code. Nothing here decides anything on its own -- services/payments.py only builds a link for the amount it is handed. THIS IS A BUSINESS DECISION FOR ZAHEER: emergency callouts are usually settled on completion, while fabricated work needs materials paid for up front.",
+  "_payment_note": "The payment link that travels with the quote. SET TO 100 on Heinrich's instruction 2026-08-21: the customer is asked for the full amount they agreed, not a deposit, and every 'deposit' word flips to 'payment' on its own. 50 asks for half up front; 0 turns the link off entirely, all without touching code. Nothing here decides anything on its own -- services/payments.py only builds a link for the amount it is handed. STILL A BUSINESS DECISION FOR ZAHEER when he goes live: emergency callouts are usually settled on completion, while fabricated work needs materials paid for up front.",
   "payment": {
     "enabled": true,
-    "deposit_percent": 50,
+    "deposit_percent": 100,
     "send_with_quote": true,
     "_receipt_note": "Paystack REQUIRES an email on every transaction and sends the receipt there. Most jobs are quoted with a name and a number only, so this is the fallback. It is Heinrich's address ON PURPOSE while this is a demo -- a test payment must never drop a receipt into a prospect's inbox. Change it to the client's own address the day they go live.",
     "receipt_fallback_email": "heinrichbosch343@gmail.com",

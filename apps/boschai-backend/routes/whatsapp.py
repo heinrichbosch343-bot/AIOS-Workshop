@@ -40,7 +40,7 @@ router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which build
 # Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-12 (2026-08-21, one link to a branded quote page with the pay button on it)"
+BUILD = "quotebot-13 (2026-08-21, FIXITT teal + red across the page and the PDF)"
 
 
 def _ack() -> Response:

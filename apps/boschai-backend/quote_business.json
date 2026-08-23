@@ -29,11 +29,11 @@
     "Approved by and affiliated to most insurance companies",
     "CIPC registered"
   ],
-  "_brand_note": "The quote page's palette. Set from fixittglass.co.za once Heinrich sends a screenshot -- neither their site nor fixitt.co.za exposes a colour in its markup (both render through JS and placeholder SVGs), so these are a considered default, not their real brand. Changing them here re-skins the page with no code change. 'pay' is deliberately a different hue from 'accent' so the pay button never reads as just another link.",
+  "_brand_note": "FIXITT's own identity, read off their website 2026-08-21: petrol teal and crimson red, the two colours in the logo block. Confirmed with Heinrich that fixitt.co.za (appliance repairs) and fixittglass.co.za (glass and aluminium) are the SAME owner trading as two divisions, so this palette is correct for the glass quotes too. These three values skin BOTH the web page and the PDF -- nothing about the look is hardcoded, so re-skinning for another client is an edit here. 'pay' is their own CTA red, the colour they use for every button on their site; set it to a green like #0b8f4d instead if a payment button in red ever reads as a warning rather than an action.",
   "brand": {
-    "ink": "#12161c",
-    "accent": "#1b6ef3",
-    "pay": "#0b8f4d"
+    "ink": "#1a6e80",
+    "accent": "#d6455a",
+    "pay": "#d6455a"
   },
   "_banking_note": "Shown on the quote page under the Pay button, for anyone who would rather do an EFT. THE PLACEHOLDERS BELOW ARE NOT REAL AND THE SECTION STAYS HIDDEN UNTIL THEY ARE REPLACED -- banking_details() returns nothing while any value still starts with 'FILL'. Never invent an account number. For a real install these must be the CLIENT's account, not Boschly's, or their customer's money arrives in the wrong bank.",
   "banking": {
@@ -83,7 +83,7 @@
     "paid_ack": "Payment received, thank you! We'll be in touch shortly to book the date.",
     "web_button": "Pay the {deposit} deposit",
     "full_web_button": "Pay {deposit} securely",
-    "pdf_line": "A secure payment link for the {deposit} deposit was sent with this quote on WhatsApp.",
-    "full_pdf_line": "A secure payment link for {deposit} was sent with this quote on WhatsApp."
+    "pdf_line": "To pay the {deposit} deposit, open the quote link we sent you on WhatsApp and tap the payment button.",
+    "full_pdf_line": "To pay {deposit}, open the quote link we sent you on WhatsApp and tap the payment button. Our banking details are on that page too."
   }
 }

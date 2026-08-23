@@ -26,12 +26,49 @@ BUSINESS_PATH = Path(__file__).parent.parent / "quote_business.json"
 _MONTHS = ["January", "February", "March", "April", "May", "June",
            "July", "August", "September", "October", "November", "December"]
 
-# The document's palette: near-black, one steel accent, greys for everything else.
-INK = (18, 22, 28)
-ACCENT = (27, 110, 243)
+# The document's palette. INK and ACCENT come from quote_business.json so the PDF and
+# the web page are skinned by the same two values -- a client's brand should never be
+# spread across a config file AND a set of constants in here, because then half of it
+# gets changed and the quote goes out in two identities at once.
+#
+# The greys are deliberately NOT configurable. They are the paper the brand sits on,
+# and letting them be set per client is how you end up with unreadable body text.
 MUTED = (122, 134, 148)
 RULE = (222, 228, 235)
 PAPER_MUTED = (246, 248, 250)
+
+_DEFAULT_INK = "#12161c"
+_DEFAULT_ACCENT = "#1b6ef3"
+
+
+def _rgb(value: str, fallback: tuple) -> tuple:
+    """'#1a6e80' -> (26, 110, 128). Falls back rather than raising: a typo in a colour
+    must never be the reason a customer cannot get their quote."""
+    text = str(value or "").strip().lstrip("#")
+    if len(text) == 3:
+        text = "".join(c * 2 for c in text)
+    if len(text) != 6:
+        return fallback
+    try:
+        return tuple(int(text[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return fallback
+
+
+def _tint(rgb: tuple, amount: float) -> tuple:
+    """Mix a colour toward white. Used for a label sitting on the dark brand band: a
+    fixed light blue was hardcoded there, and it clashed the moment the brand stopped
+    being blue."""
+    return tuple(int(c + (255 - c) * amount) for c in rgb)
+
+
+def ink() -> tuple:
+    return _rgb((business().get("brand") or {}).get("ink", _DEFAULT_INK), (18, 22, 28))
+
+
+def accent() -> tuple:
+    return _rgb((business().get("brand") or {}).get("accent", _DEFAULT_ACCENT),
+                (27, 110, 243))
 
 
 # ─────────────────────────────────────────────────────────────────── the business
@@ -398,7 +435,8 @@ class _Quote(FPDF):
     """Absolute positioning throughout — every element goes at a known x/y rather
     than flowing, so the layout cannot drift when one description wraps to two lines."""
 
-    def txt(self, x, y, text, size=9.5, style="", color=INK, w=0, align="L"):
+    def txt(self, x, y, text, size=9.5, style="", color=None, w=0, align="L"):
+        color = ink() if color is None else color
         self.set_xy(x, y)
         self.set_font("Helvetica", style, size)
         self.set_text_color(*color)
@@ -431,11 +469,13 @@ def render_pdf(quote: dict) -> bytes:
     pdf.add_page()
 
     # ── header band
-    pdf.set_fill_color(*INK)
+    pdf.set_fill_color(*ink())
     pdf.rect(0, 0, 210, 42, "F")
     pdf.txt(15, 11, biz["name"], size=19, style="B", color=(255, 255, 255))
     pdf.txt(15, 22, biz.get("tagline", ""), size=8.5, color=(150, 162, 176))
-    pdf.txt(115, 11.5, "QUOTATION", size=8, style="B", color=(120, 170, 255),
+    # A light tint of the brand rather than a fixed blue, which clashed the moment the
+    # brand stopped being blue. Mixed toward white so it stays legible on the dark band.
+    pdf.txt(115, 11.5, "QUOTATION", size=8, style="B", color=_tint(accent(), 0.55),
             w=80, align="R")
     pdf.txt(115, 19, quote.get("quote_number", ""), size=15, style="B",
             color=(255, 255, 255), w=80, align="R")
@@ -470,7 +510,7 @@ def render_pdf(quote: dict) -> bytes:
     pdf.label(15, y, "Description")
     pdf.label(120, y, "Amount", w=75, align="R")
     y += 7
-    pdf.rule(15, y, 180, color=INK, weight=0.4)
+    pdf.rule(15, y, 180, color=ink(), weight=0.4)
     y += 4
 
     for item in quote.get("line_items") or []:
@@ -491,7 +531,7 @@ def render_pdf(quote: dict) -> bytes:
     pdf.rect(110, y, 85, 14, "F")
     pdf.txt(116, y + 4.5, "Total", size=10, style="B", color=(70, 80, 92))
     pdf.txt(116, y + 4, fmt_money(quote.get("total"), currency), size=13.5,
-            style="B", color=INK, w=73, align="R")
+            style="B", color=ink(), w=73, align="R")
     y += 18
 
     if biz.get("vat_registered") and biz.get("vat_number"):
@@ -515,7 +555,7 @@ def render_pdf(quote: dict) -> bytes:
     pdf.rect(15, y, 180, box_h, "F")
     py = y + 5
     for promise in promises:
-        pdf.set_fill_color(*ACCENT)
+        pdf.set_fill_color(*accent())
         pdf.ellipse(21, py + 1.9, 1.6, 1.6, "F")
         pdf.txt(26, py, promise, size=9, color=(45, 54, 66))
         py += 6.5
@@ -652,7 +692,7 @@ def render_html(quote: dict, pdf_url: str = "") -> str:
         ".trust span{color:var(--muted);font-size:11.5px;position:relative;"
         "padding-left:15px;line-height:1.45}"
         ".trust span::before{content:'\\2713';position:absolute;left:0;top:0;"
-        "color:var(--pay);font-weight:700}"
+        "color:var(--ink);font-weight:700}"
         "main{padding:6px 24px 24px}"
         ".lbl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;"
         "color:var(--muted);font-weight:700;margin:26px 0 8px}"
@@ -673,7 +713,7 @@ def render_html(quote: dict, pdf_url: str = "") -> str:
         ".pay{display:block;text-align:center;background:var(--pay);color:#fff;"
         "text-decoration:none;padding:19px;border-radius:11px;font-weight:800;"
         "font-size:18px;letter-spacing:-.2px;margin:26px 0 8px;"
-        "box-shadow:0 6px 18px rgba(11,143,77,.28)}"
+        "box-shadow:0 6px 16px rgba(0,0,0,.20)}"
         ".pay:active{transform:translateY(1px)}"
         ".secure{text-align:center;color:var(--muted);font-size:12px;margin:0 0 6px}"
         ".paid{text-align:center;background:#e8f6ee;color:#0b6b3a;padding:17px;"
@@ -682,7 +722,7 @@ def render_html(quote: dict, pdf_url: str = "") -> str:
         "font-variant-numeric:tabular-nums}"
         ".ref{color:var(--muted);font-size:12px;margin:8px 0 0}"
         ".dl{display:block;text-align:center;border:1px solid var(--rule);"
-        "color:var(--accent);text-decoration:none;padding:14px;border-radius:10px;"
+        "color:var(--ink);text-decoration:none;padding:14px;border-radius:10px;"
         "font-weight:600;margin:22px 0 0;font-size:14.5px}"
         ".terms{color:var(--muted);font-size:12.5px;margin-top:20px}"
         "footer{border-top:1px solid var(--rule);margin-top:26px;padding:20px 24px 44px;"

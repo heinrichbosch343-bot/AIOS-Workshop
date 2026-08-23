@@ -291,6 +291,56 @@ def unpaid_quotes(older_than_days: int = 2) -> list:
 
 # ──────────────────────────────────────────────────────────────────────── health
 
+def activity_summary(hours: int = 24) -> dict:
+    """When did a message last arrive, when did one last go out, and how many of each.
+
+    This is the instrument that was missing every single time this bot went quiet.
+    "It doesn't reply" has two completely different causes with the same symptom:
+    nothing is REACHING us (Twilio not posting — wrong webhook URL, or a sandbox
+    membership that lapsed), or things reach us and the reply fails to leave. Without
+    this you cannot tell them apart, and the whole afternoon goes into guessing.
+
+    Timestamps and counts ONLY. No phone numbers, no message bodies, no sids — so it
+    is safe on the unguarded probe, which is exactly where it is needed, because the
+    moment things break is the moment nobody can find the API key.
+    """
+    since = (datetime.now(TZ) - timedelta(hours=hours)).isoformat()
+    out = {"window_hours": hours}
+    for direction, label in (("in", "inbound"), ("out", "outbound")):
+        try:
+            rows = (_db().table("quote_messages").select("created_at")
+                    .eq("direction", direction).gte("created_at", since)
+                    .order("created_at", desc=True).execute()).data or []
+            out[f"{label}_count"] = len(rows)
+            out[f"last_{label}_at"] = rows[0]["created_at"] if rows else None
+        except Exception as exc:
+            out[f"{label}_count"] = f"UNAVAILABLE: {str(exc)[:120]}"
+            out[f"last_{label}_at"] = None
+
+    # The reading that matters, spelled out rather than left as an inference.
+    inbound = out.get("inbound_count")
+    outbound = out.get("outbound_count")
+    if not isinstance(inbound, int) or not isinstance(outbound, int):
+        out["reading"] = "Could not read the message log."
+    elif inbound == 0:
+        out["reading"] = (
+            f"NOTHING has reached this webhook in {hours}h. The bot cannot reply to a "
+            "message it never received — the fault is upstream of us. Check that the "
+            "Twilio sandbox still has both numbers joined (membership lapses after 72h "
+            "idle) and that the Twilio console's WHEN A MESSAGE COMES IN URL points at "
+            "this host's /webhook/whatsapp.")
+    elif outbound == 0:
+        out["reading"] = (
+            f"{inbound} message(s) arrived and NONE went out. Messages are reaching us "
+            "and the reply is failing to leave — a Twilio send error, not a routing "
+            "problem.")
+    else:
+        out["reading"] = (
+            f"{inbound} in, {outbound} out in the last {hours}h — traffic is flowing "
+            "in both directions.")
+    return out
+
+
 def health() -> dict:
     """Which tables are actually reachable. When the bot is quiet, the first question
     is always whether the migration was run — this answers it without a browser."""

@@ -40,7 +40,7 @@ router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which build
 # Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-13 (2026-08-21, FIXITT teal + red across the page and the PDF)"
+BUILD = "quotebot-14 (2026-08-23, traffic counters: is anything even reaching us)"
 
 
 def _ack() -> Response:
@@ -396,6 +396,10 @@ def ready():
                      "quotes. Fine for a sandbox, wrong for a real business."),
         },
         "tables": tables,
+        # "It doesn't reply" has two causes with one symptom: nothing is reaching us,
+        # or replies are not leaving. This says which, without a key and without
+        # exposing a phone number or a word of anyone's message.
+        "traffic": store.activity_summary(24),
         "model": engine.MODEL,
         "env_with_stray_quotes": dirty,
         "last_signature_rejection": _LAST_REJECTION or "none since restart",

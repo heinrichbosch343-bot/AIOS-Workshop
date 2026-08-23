@@ -314,11 +314,19 @@ def handle_technician(technician: str, body: str, message_sid: str = "") -> None
         # ended in "send it", or an approval of a quote that has changed since. Show it
         # and ask again. Approving from memory is how the wrong price goes out.
         if session.get("state") != "ready":
+            # Same rule as below: he is only "ready" once the card has actually
+            # reached him. Arming the send on a card that failed to deliver is how
+            # an unread quote goes to a customer.
+            store.record_decision(message_sid, {"action": "send", "result": "shown-first"})
+            try:
+                say(technician, _card(job, "Before I send — check this:"))
+            except Exception as exc:
+                store.save_session(session)
+                print(f"[quotebot] card to {technician} failed: {exc}", flush=True)
+                return
             session["state"] = "ready"
             _remember(session, "bot", "showed the card")
             store.save_session(session)
-            store.record_decision(message_sid, {"action": "send", "result": "shown-first"})
-            say(technician, _card(job, "Before I send — check this:"))
             return
 
         store.record_decision(message_sid, {"action": "send", "result": "issuing"})
@@ -340,10 +348,23 @@ def handle_technician(technician: str, body: str, message_sid: str = "") -> None
     if _warn_unreachable(technician, session, message_sid):
         return
 
+    # "ready" is the state that lets the NEXT message issue a real quote to a real
+    # customer. It must only be reached by him actually seeing the card. Committing
+    # it before the send means a card that never arrived still arms the send — he
+    # types "ja" about something else and a quote he has never read goes out.
+    # So: send first, and only record that he was shown it if the send succeeded.
+    try:
+        say(technician, _card(job, reply))
+    except Exception as exc:
+        session["state"] = "collecting"
+        store.save_session(session)
+        print(f"[quotebot] card to {technician} failed, staying in collecting: {exc}",
+              flush=True)
+        return
+
     session["state"] = "ready"
     _remember(session, "bot", "showed the card")
     store.save_session(session)
-    say(technician, _card(job, reply))
 
 
 def _warn_unreachable(technician: str, session: dict, message_sid: str) -> bool:
@@ -622,7 +643,7 @@ def issue(technician: str, session: dict) -> None:
         # needs to know his customer has a way to pay.
         if quote.get("payment_url"):
             amount = doc.fmt_money(quote.get("deposit_amount"), quote["currency"])
-            noun = "payment" if doc.deposit_is_full() else "deposit"
+            noun = "payment" if doc.is_full_amount(quote) else "deposit"
             where = "in the message" if quote.get("wa_payment_url") else "on the quote page"
             lines.append(f"→ {amount} {noun} link {where} ✓")
         elif quote.get("payment_error"):

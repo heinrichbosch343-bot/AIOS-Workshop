@@ -272,6 +272,44 @@ def deposit_for(quote: dict):
                                                   rounding=ROUND_HALF_UP))
 
 
+def amount_due(quote: dict):
+    """What this quote's payment link ACTUALLY charges, in rand — or None.
+
+    Prefers the `deposit_amount` stored on the quote when it was issued, and only
+    falls back to pricing from the live policy for a quote that has not been issued
+    yet. deposit_for() answers "what would we charge today"; this answers "what were
+    they charged", and every customer-facing figure must be the second one.
+
+    They diverge the moment the policy changes. deposit_percent went from 50 to 100
+    on 2026-08-21, and every quote issued before that instantly began DISPLAYING the
+    full total while its Paystack link still charged half. The customer reads one
+    number on the page and is asked for another at the checkout, which is the single
+    worst thing a quoting system can do — worse than not quoting at all, because it
+    looks deliberate.
+    """
+    stored = quote.get("deposit_amount") if quote else None
+    if stored is not None:
+        try:
+            return float(stored)
+        except (TypeError, ValueError):
+            pass
+    return deposit_for(quote or {})
+
+
+def is_full_amount(quote: dict) -> bool:
+    """Whether what they are being asked for IS the whole bill, judged from this
+    quote's own figures rather than from today's policy — same reason as above.
+    Calling half a bill a 'payment', or a whole one a 'deposit', is a small
+    wrongness that costs exactly as much trust as a wrong number."""
+    due, total = amount_due(quote), quote.get("total")
+    if due is None or total in (None, ""):
+        return deposit_is_full()
+    try:
+        return Decimal(str(due)) >= Decimal(str(total))
+    except (TypeError, ValueError):
+        return deposit_is_full()
+
+
 def deposit_is_full(quote: dict = None) -> bool:
     """At 100% it is not a deposit, it is the bill — and calling it a deposit on a
     customer's phone is the kind of small wrongness that costs trust."""
@@ -289,14 +327,15 @@ def _payment_copy(quote: dict, key: str) -> str:
     the one screen that has to work.
     """
     policy = payment_policy()
-    if deposit_is_full():
+    if is_full_amount(quote):
         return policy.get(f"full_{key}") or policy.get(key, "")
     return policy.get(key, "")
 
 
 def _fill(template: str, quote: dict) -> str:
     biz = business()
-    deposit = deposit_for(quote)
+    # What they were actually charged, never what today.s policy would charge.
+    deposit = amount_due(quote)
     return (str(template)
             .replace("{deposit}", fmt_money(deposit, quote.get("currency", "ZAR"))
                      if deposit is not None else "")
@@ -571,9 +610,14 @@ def render_pdf(quote: dict) -> bytes:
     # The document names the deposit but never carries the link itself: a PDF gets
     # forwarded, printed and filed, and a live payment URL sitting in a filing cabinet
     # is a way to be paid twice for one job.
-    if quote.get("payment_url") and deposit_for(quote) is not None:
-        pdf.para(15, y, 180, _fill(_payment_copy(quote, "pdf_line"), quote),
-                 size=8.5, color=(45, 54, 66))
+    # The full-amount wording says the banking details are on the quote page too, so
+    # only use it when they actually ARE. Sending a customer to look for something
+    # that is not there is worse than never mentioning it.
+    if quote.get("payment_url") and amount_due(quote) is not None:
+        line = _fill(_payment_copy(quote, "pdf_line"), quote)
+        if banking_details() is None:
+            line = line.replace(" Our banking details are on that page too.", "")
+        pdf.para(15, y, 180, line, size=8.5, color=(45, 54, 66))
 
     # ── footer
     pdf.rule(15, 277, 180)
@@ -634,7 +678,7 @@ def render_html(quote: dict, pdf_url: str = "") -> str:
     # what she is paying for first. Only rendered while the quote is actually unpaid;
     # showing "Pay now" on something already settled is how you get an angry call.
     pay = ""
-    deposit = deposit_for(quote)
+    deposit = amount_due(quote)
     paid = quote.get("payment_status") == "paid"
     if quote.get("payment_url") and deposit is not None and not paid:
         label = _fill(_payment_copy(quote, "web_button"), quote)

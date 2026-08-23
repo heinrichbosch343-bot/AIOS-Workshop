@@ -17,7 +17,12 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-from playwright.async_api import async_playwright
+# NOTE: playwright is imported lazily inside _html_to_pdf, NOT here.
+# This module is on the app's import path (main.py -> routes/invoicing.py -> here),
+# so a module-level import of a heavy optional dependency means an invoicing problem
+# takes down the WhatsApp webhook and the /quotebot/ready probe with it -- the two
+# things you need most at exactly that moment. Same reason services/quote_store.py
+# defers its Supabase import.
 
 from config import INVOICE_AUTOSEND_ENABLED, TELEGRAM_ENABLED
 from db.client import supabase
@@ -113,6 +118,7 @@ def _render_html(invoice_number: str, client_name: str, client_email: str,
 
 
 async def _html_to_pdf(html: str) -> bytes:
+    from playwright.async_api import async_playwright
     async with async_playwright() as p:
         browser = await p.chromium.launch()
         page = await browser.new_page()

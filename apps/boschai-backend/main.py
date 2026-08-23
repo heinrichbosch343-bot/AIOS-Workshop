@@ -1,3 +1,4 @@
+import inspect
 import os
 import time
 from collections import defaultdict, deque
@@ -35,13 +36,29 @@ BOT_ENABLED = (ON_RAILWAY or os.getenv("RUN_TELEGRAM_BOT") == "1") and os.getenv
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Each background service starts inside its own guard. An exception here aborts
+    # the ASGI lifespan, uvicorn never binds, Railway burns its three restarts and
+    # stops -- so a Telegram network blip or one bad import in a scheduled job used
+    # to take the WhatsApp webhook down with it. The HTTP server is the thing people
+    # depend on; a background job failing to register must never outrank it.
     if BOT_ENABLED:
-        await start_bot()
-        start_scheduler()  # daily brief + sign-off watcher (hosted only)
+        for name, start in (("telegram bot", start_bot),
+                            ("scheduler", start_scheduler)):
+            try:
+                result = start()
+                if inspect.isawaitable(result):
+                    await result
+            except Exception as exc:
+                print(f"[startup] {name} did not start: {exc}", flush=True)
     yield
     if BOT_ENABLED:
-        await stop_bot()
-        stop_scheduler()
+        for name, stop in (("telegram bot", stop_bot), ("scheduler", stop_scheduler)):
+            try:
+                result = stop()
+                if inspect.isawaitable(result):
+                    await result
+            except Exception as exc:
+                print(f"[shutdown] {name} did not stop cleanly: {exc}", flush=True)
 
 
 app = FastAPI(lifespan=lifespan)

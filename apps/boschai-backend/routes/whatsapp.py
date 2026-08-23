@@ -35,12 +35,13 @@ from config import (
 from services import quote_doc as doc
 from services import quote_engine as engine
 from services import quote_store as store
+from services import whatsapp
 
 router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which build
 # Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-16 (2026-08-23, Twilio tells us when a reply never arrived)"
+BUILD = "quotebot-17 (2026-08-23, review fixes: stored money, armed sends, loop guards, startup)"
 
 
 def _ack() -> Response:
@@ -123,17 +124,29 @@ def _signed_url_candidates(request: Request) -> list:
 # message body — just the URLs — so /quotebot/ready can show it without leaking anything.
 _LAST_REJECTION = {}
 
+# The last time handling a message blew up. Recorded rather than swallowed: a bot
+# that cannot even apologise used to leave no trace at all.
+_LAST_DISPATCH_FAILURE = {}
 
-def _valid_signature(request: Request, form: dict) -> bool:
+
+def _valid_signature(request: Request, form: dict, inbound: bool = True) -> bool:
     """Twilio signs every webhook: HMAC-SHA1 over the full URL plus the sorted POST
     params, keyed on the auth token. Without this the endpoint is an open megaphone
-    that sends WhatsApp messages on demand, billed to us."""
+    that sends WhatsApp messages on demand, billed to us.
+
+    `inbound` says whether this is a real message on /webhook/whatsapp. Only those
+    clear the rejection record. Status callbacks now hit the same validator, and
+    since every send we make produces one, a successful callback would otherwise
+    wipe the evidence that inbound messages were being refused — turning the probe's
+    "none since restart" into a lie at exactly the moment it is being trusted.
+    """
     signature = request.headers.get("X-Twilio-Signature", "")
     token = clean_env("TWILIO_AUTH_TOKEN")
     if not signature or not token:
-        _LAST_REJECTION.update({"at": doc.now_iso(),
-                                "why": "no signature header" if not signature
-                                       else "TWILIO_AUTH_TOKEN not set", "tried": []})
+        if inbound:
+            _LAST_REJECTION.update({"at": doc.now_iso(),
+                                    "why": "no signature header" if not signature
+                                           else "TWILIO_AUTH_TOKEN not set", "tried": []})
         return False
 
     params = "".join(k + str(form[k]) for k in sorted(form))
@@ -141,12 +154,32 @@ def _valid_signature(request: Request, form: dict) -> bool:
         digest = hmac.new(token.encode(), (url + params).encode("utf-8"),
                           hashlib.sha1).digest()
         if hmac.compare_digest(base64.b64encode(digest).decode(), signature):
-            _LAST_REJECTION.clear()
+            if inbound:
+                _LAST_REJECTION.clear()
             return True
 
-    _LAST_REJECTION.update({"at": doc.now_iso(), "why": "no candidate URL matched",
-                            "tried": _signed_url_candidates(request)})
+    if inbound:
+        _LAST_REJECTION.update({"at": doc.now_iso(), "why": "no candidate URL matched",
+                                "tried": _signed_url_candidates(request)})
     return False
+
+
+# Twilio posts a callback per state change and retries on a non-2xx, so the same
+# MessageSid arrives repeatedly. Bounded, because this is a process-local cache and
+# an unbounded dict on a long-lived server is a slow leak.
+_seen_status_sids = []
+_seen_guard = threading.Lock()
+
+
+def _seen_status(sid: str) -> bool:
+    """True the FIRST time this status callback is seen, False every time after."""
+    with _seen_guard:
+        if sid in _seen_status_sids:
+            return False
+        _seen_status_sids.append(sid)
+        if len(_seen_status_sids) > 500:
+            del _seen_status_sids[:250]
+        return True
 
 
 def _is_technician(number: str) -> bool:
@@ -219,10 +252,20 @@ def _dispatch(sender: str, body: str, message_sid: str) -> None:
             engine.say(sender, NOT_FOR_YOU)
         except Exception as exc:
             print(f"[quotebot] dispatch failed for {sender}: {exc}", flush=True)
+            _LAST_DISPATCH_FAILURE.update({
+                "at": doc.now_iso(), "who": "…" + str(sender)[-3:],
+                "error": str(exc)[:300]})
+            # If the failure was the SEND itself — which it usually is — apologising
+            # through the same channel goes to the same place: nowhere. It used to be
+            # swallowed with a bare `except: pass`, so a bot that could not talk left
+            # no trace anywhere. Record it, and only try the apology when the thing
+            # that broke was not the sending.
+            if isinstance(exc, whatsapp.WhatsAppError):
+                return
             try:
                 engine.say(sender, "Something went wrong on my side. Send that again?")
-            except Exception:
-                pass
+            except Exception as second:
+                _LAST_DISPATCH_FAILURE["apology_also_failed"] = str(second)[:200]
 
 
 # ───────────────────────────────────────────────────────────────────── the routes
@@ -292,9 +335,17 @@ async def delivery_status(request: Request, background: BackgroundTasks):
     status = str(form.get("MessageStatus") or "").lower()
     to = str(form.get("To", "")).replace("whatsapp:", "").strip()
     code = str(form.get("ErrorCode") or "").strip()
+    sid = str(form.get("MessageSid") or "").strip()
 
-    if WHATSAPP_VALIDATE_SIGNATURE and not _valid_signature(request, form):
+    if WHATSAPP_VALIDATE_SIGNATURE and not _valid_signature(request, form, inbound=False):
         return Response(status_code=403)
+
+    # Twilio posts a callback per state change and retries on a non-2xx, so the same
+    # failure arrives more than once. Without this the technician gets the same
+    # warning three times; worse, each warning is itself a send that can fail and
+    # produce another callback.
+    if sid and not _seen_status(sid):
+        return _ack()
 
     if status in ("failed", "undelivered"):
         from services.whatsapp import FRIENDLY, SANDBOX_HINT
@@ -304,17 +355,42 @@ async def delivery_status(request: Request, background: BackgroundTasks):
             "at": doc.now_iso(), "to": "…" + to[-3:], "status": status,
             "error_code": code, "reason": reason or "(no Twilio reason given)"})
         print(f"[quotebot] DELIVERY FAILED to ...{to[-3:]} — {status} {code}", flush=True)
-        background.add_task(_warn_delivery_failed, to, code, reason)
+        # Was the undelivered message itself one of our warnings? If so, stop here.
+        was_warning = str(form.get("Body") or "").startswith(WARNING_MARK)
+        background.add_task(_warn_delivery_failed, to, code, reason, was_warning)
 
     return _ack()
 
 
-def _warn_delivery_failed(to: str, code: str, reason: str) -> None:
-    """Tell a technician that a message did not arrive — but never tell the person it
-    failed to reach, because by definition we cannot reach them."""
-    if not QUOTE_TECHNICIANS:
+# A warning about an undelivered message is itself a message that can fail to be
+# delivered. With one technician the "don't warn the number that just failed" rule
+# ends it; with two it ping-pongs — A fails, warn B, B fails, warn A — forever, on a
+# billed API. So warnings are marked, and a warning that fails never spawns another.
+WARNING_MARK = "⚠️"          # the sign the note itself opens with
+_warned_recently = {}
+_warn_guard = threading.Lock()
+
+
+def _warn_delivery_failed(to: str, code: str, reason: str, was_warning: bool) -> None:
+    """Tell a technician a message did not arrive.
+
+    Never tells the person it failed to reach — by definition we cannot reach them —
+    and never warns about a warning, which is what makes this terminate.
+    """
+    if not QUOTE_TECHNICIANS or was_warning:
         return
-    note = [f"⚠️ A message to {doc.display_phone(to)} did not arrive.", ""]
+
+    # One warning per number per five minutes. A phone that has dropped out of the
+    # sandbox fails every single send, and without this the technician's own phone
+    # becomes the outage.
+    with _warn_guard:
+        import time
+        now = time.time()
+        if now - _warned_recently.get(to, 0) < 300:
+            return
+        _warned_recently[to] = now
+
+    note = [f"{WARNING_MARK} A message to {doc.display_phone(to)} did not arrive.", ""]
     if reason:
         note.append(reason)
     if code:
@@ -461,6 +537,7 @@ def ready():
         "env_with_stray_quotes": dirty,
         "last_signature_rejection": _LAST_REJECTION or "none since restart",
         "last_delivery_failure": _LAST_DELIVERY_FAILURE or "none since restart",
+        "last_dispatch_failure": _LAST_DISPATCH_FAILURE or "none since restart",
         "telegram_notifications": "on" if TELEGRAM_ENABLED else "OFF (set TELEGRAM_ENABLED=1 to restore)",
         "payment_policy": {k: doc.payment_policy().get(k) for k in
                            ("enabled", "deposit_percent", "send_with_quote")},

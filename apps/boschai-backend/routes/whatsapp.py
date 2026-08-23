@@ -40,7 +40,7 @@ router = APIRouter()
 
 # Bumped by hand whenever this file changes, so /quotebot/status proves which build
 # Railway is actually running. Guessing at that has cost hours.
-BUILD = "quotebot-15 (2026-08-23, ask Twilio whether the replies actually arrived)"
+BUILD = "quotebot-16 (2026-08-23, Twilio tells us when a reply never arrived)"
 
 
 def _ack() -> Response:
@@ -271,6 +271,63 @@ async def inbound(request: Request, background: BackgroundTasks):
     return _ack()
 
 
+# The last delivery failure Twilio reported, for the probe. No message body; the
+# number is cut to three digits so this stays safe on an unguarded endpoint.
+_LAST_DELIVERY_FAILURE = {}
+
+
+@router.post("/webhook/whatsapp/status")
+async def delivery_status(request: Request, background: BackgroundTasks):
+    """Twilio tells us what became of a message it had already accepted.
+
+    Twilio returns 201 "queued" for sends it will never deliver. An unjoined sandbox
+    number (63015) and a closed 24-hour window (63016) both fail minutes later, out
+    of band, raising nothing — so the technician is told "Sent ✓" while the customer
+    receives silence. That is the precise failure this whole system exists to remove,
+    reproduced by the system itself, and it has now cost two sessions.
+
+    So: when a delivery fails, say so on the technician's phone.
+    """
+    form = _parse_form(await request.body())
+    status = str(form.get("MessageStatus") or "").lower()
+    to = str(form.get("To", "")).replace("whatsapp:", "").strip()
+    code = str(form.get("ErrorCode") or "").strip()
+
+    if WHATSAPP_VALIDATE_SIGNATURE and not _valid_signature(request, form):
+        return Response(status_code=403)
+
+    if status in ("failed", "undelivered"):
+        from services.whatsapp import FRIENDLY, SANDBOX_HINT
+        reason = (SANDBOX_HINT if code == "63015"
+                  else FRIENDLY.get(int(code)) if code.isdigit() else "")
+        _LAST_DELIVERY_FAILURE.update({
+            "at": doc.now_iso(), "to": "…" + to[-3:], "status": status,
+            "error_code": code, "reason": reason or "(no Twilio reason given)"})
+        print(f"[quotebot] DELIVERY FAILED to ...{to[-3:]} — {status} {code}", flush=True)
+        background.add_task(_warn_delivery_failed, to, code, reason)
+
+    return _ack()
+
+
+def _warn_delivery_failed(to: str, code: str, reason: str) -> None:
+    """Tell a technician that a message did not arrive — but never tell the person it
+    failed to reach, because by definition we cannot reach them."""
+    if not QUOTE_TECHNICIANS:
+        return
+    note = [f"⚠️ A message to {doc.display_phone(to)} did not arrive.", ""]
+    if reason:
+        note.append(reason)
+    if code:
+        note.append(f"(Twilio code {code})")
+    for technician in QUOTE_TECHNICIANS:
+        if technician == to:
+            continue          # they cannot receive it either; that is the whole problem
+        try:
+            engine.say(technician, "\n".join(note))
+        except Exception as exc:
+            print(f"[quotebot] could not warn {technician}: {exc}", flush=True)
+
+
 @router.get("/quotebot/ready")
 def ready():
     """Is this thing actually able to work right now, and if not, what is missing?
@@ -403,6 +460,7 @@ def ready():
         "model": engine.MODEL,
         "env_with_stray_quotes": dirty,
         "last_signature_rejection": _LAST_REJECTION or "none since restart",
+        "last_delivery_failure": _LAST_DELIVERY_FAILURE or "none since restart",
         "telegram_notifications": "on" if TELEGRAM_ENABLED else "OFF (set TELEGRAM_ENABLED=1 to restore)",
         "payment_policy": {k: doc.payment_policy().get(k) for k in
                            ("enabled", "deposit_percent", "send_with_quote")},

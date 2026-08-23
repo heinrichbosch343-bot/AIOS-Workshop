@@ -66,8 +66,30 @@ def _to(number: str) -> str:
     return number if number.startswith("whatsapp:") else f"whatsapp:{number}"
 
 
+def _status_callback() -> str:
+    """Where Twilio should tell us what happened to a message AFTER it accepted it.
+
+    This is the difference between a system that knows it failed and one that does
+    not. Twilio returns 201 "queued" for a send it will never deliver — an unjoined
+    sandbox number (63015) or a closed 24-hour window (63016) both fail minutes
+    later, out of band. Nothing raises. Our own logs record a successful send, the
+    technician is told "Sent ✓", and the customer gets nothing.
+
+    That exact failure has now cost two demo sessions. With this, Twilio posts the
+    final status back and we can say so out loud instead of guessing.
+    """
+    from config import public_base_url
+    base = public_base_url()
+    if not base or "localhost" in base:
+        return ""            # nothing reachable to call back to
+    return f"{base}/webhook/whatsapp/status"
+
+
 def _post(payload: dict) -> dict:
     sid, token = _auth()
+    callback = _status_callback()
+    if callback:
+        payload = {**payload, "StatusCallback": callback}
     resp = httpx.post(
         f"{API_ROOT}/Accounts/{sid}/Messages.json",
         data=payload, auth=(sid, token), timeout=TIMEOUT,

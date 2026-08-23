@@ -8,6 +8,9 @@ which are granted during the /auth/google flow.
 import base64
 import re
 from datetime import datetime
+from email import encoders
+from email.mime.base import MIMEBase
+from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from html import unescape
 
@@ -356,4 +359,122 @@ def send_new(to: str, subject: str, body: str) -> dict:
         userId="me",
         body={"raw": raw},
     ).execute()
-    return {"sent_id": sent.get("id"), "to": to, "subject": subject}
+    return {"sent_id": sent.get("id"), "thread_id": sent.get("threadId"),
+            "to": to, "subject": subject}
+
+
+def _build_attachment_mime(to: str, subject: str, body: str,
+                            attachment_bytes: bytes, attachment_filename: str,
+                            mime_type: str) -> str:
+    body = _sanitize_outgoing(body)
+    msg = MIMEMultipart()
+    msg["To"] = to
+    msg["Subject"] = subject
+    msg.attach(MIMEText(body))
+
+    maintype, subtype = mime_type.split("/", 1)
+    part = MIMEBase(maintype, subtype)
+    part.set_payload(attachment_bytes)
+    encoders.encode_base64(part)
+    part.add_header("Content-Disposition", f'attachment; filename="{attachment_filename}"')
+    msg.attach(part)
+
+    return base64.urlsafe_b64encode(msg.as_bytes()).decode()
+
+
+def send_new_with_attachment(to: str, subject: str, body: str,
+                              attachment_bytes: bytes, attachment_filename: str,
+                              mime_type: str = "application/pdf") -> dict:
+    """Send a brand-new email (not a reply) with one file attached. Used by invoicing."""
+    raw = _build_attachment_mime(to, subject, body, attachment_bytes, attachment_filename, mime_type)
+    sent = _gmail().users().messages().send(userId="me", body={"raw": raw}).execute()
+    return {"sent_id": sent.get("id"), "thread_id": sent.get("threadId"), "to": to, "subject": subject}
+
+
+def create_draft_with_attachment(to: str, subject: str, body: str,
+                                  attachment_bytes: bytes, attachment_filename: str,
+                                  mime_type: str = "application/pdf") -> dict:
+    """Save a brand-new email with an attachment as a Gmail draft WITHOUT sending it."""
+    raw = _build_attachment_mime(to, subject, body, attachment_bytes, attachment_filename, mime_type)
+    draft = _gmail().users().drafts().create(userId="me", body={"message": {"raw": raw}}).execute()
+    return {"draft_id": draft.get("id"), "to": to, "subject": subject}
+
+
+def extract_address(value: str) -> str:
+    """Public wrapper: bare email address from a To/From header value."""
+    return _addr(value)
+
+
+def list_drafts(query: str = "", max_results: int = 200) -> list[dict]:
+    """Return the account's Gmail drafts (id, recipient, subject, snippet).
+
+    `query` is an optional Gmail search filter (e.g. 'label:drip'). Metadata
+    only — bodies stay in Gmail; drafts.send delivers whatever the draft holds
+    at send time, attachments and threading included.
+    """
+    gmail = _gmail()
+    kwargs = {"userId": "me", "maxResults": min(max_results, 500)}
+    if query:
+        kwargs["q"] = query
+    drafts, page_token = [], None
+    while True:
+        if page_token:
+            kwargs["pageToken"] = page_token
+        listing = gmail.users().drafts().list(**kwargs).execute()
+        drafts.extend(listing.get("drafts", []))
+        page_token = listing.get("nextPageToken")
+        if not page_token or len(drafts) >= max_results:
+            break
+
+    out = []
+    for ref in drafts[:max_results]:
+        d = gmail.users().drafts().get(
+            userId="me", id=ref["id"], format="metadata",
+        ).execute()
+        msg = d.get("message", {})
+        headers = msg.get("payload", {}).get("headers", [])
+        out.append({
+            "draft_id": d["id"],
+            "message_id": msg.get("id", ""),
+            "thread_id": msg.get("threadId", ""),
+            "to": _header(headers, "To"),
+            "subject": _header(headers, "Subject") or "(no subject)",
+            "snippet": msg.get("snippet", ""),
+        })
+    return out
+
+
+def send_draft(draft_id: str) -> dict:
+    """Send an existing Gmail draft as-is (drafts.send). A draft composed as a
+    reply keeps its In-Reply-To headers and thread, so it lands threaded."""
+    sent = _gmail().users().drafts().send(
+        userId="me", body={"id": draft_id},
+    ).execute()
+    return {"sent_id": sent.get("id"), "thread_id": sent.get("threadId")}
+
+
+def get_thread(thread_id: str) -> list[dict]:
+    """Return every message in a thread (oldest first) with sender, labels and
+    plain-text body — used by the drip responder to spot and answer replies."""
+    gmail = _gmail()
+    thread = gmail.users().threads().get(
+        userId="me", id=thread_id, format="full",
+    ).execute()
+    msgs = []
+    for m in thread.get("messages", []):
+        payload = m.get("payload", {})
+        headers = payload.get("headers", [])
+        from_value = _header(headers, "From")
+        msgs.append({
+            "id": m["id"],
+            "from": from_value,
+            "email": _addr(from_value),
+            "subject": _header(headers, "Subject") or "",
+            "date": _header(headers, "Date"),
+            "labels": m.get("labelIds", []),
+            "internal_ms": int(m.get("internalDate", "0") or "0"),
+            "snippet": m.get("snippet", ""),
+            "body": _extract_body(payload),
+        })
+    msgs.sort(key=lambda x: x["internal_ms"])
+    return msgs

@@ -22,13 +22,35 @@
     "We'll beat any written quote by 5%",
     "Emergency callouts, 24 hours a day, 365 days a year"
   ],
+  "_trust_note": "Taken verbatim from fixittglass.co.za on 2026-08-21 and shown as a quiet strip on the quote page. NOTE fixitt.co.za is a DIFFERENT company (appliance repair, 021 699 3153) -- never use it as a source for this business. Only claims the company makes about itself in public belong here; never invent one, and drop any line Zaheer will not stand behind.",
+  "trust": [
+    "500+ five-star Google reviews",
+    "Preferred supplier to the University of Cape Town and the Radisson Waterfront",
+    "Approved by and affiliated to most insurance companies",
+    "CIPC registered"
+  ],
+  "_brand_note": "The quote page's palette. Set from fixittglass.co.za once Heinrich sends a screenshot -- neither their site nor fixitt.co.za exposes a colour in its markup (both render through JS and placeholder SVGs), so these are a considered default, not their real brand. Changing them here re-skins the page with no code change. 'pay' is deliberately a different hue from 'accent' so the pay button never reads as just another link.",
+  "brand": {
+    "ink": "#12161c",
+    "accent": "#1b6ef3",
+    "pay": "#0b8f4d"
+  },
+  "_banking_note": "Shown on the quote page under the Pay button, for anyone who would rather do an EFT. THE PLACEHOLDERS BELOW ARE NOT REAL AND THE SECTION STAYS HIDDEN UNTIL THEY ARE REPLACED -- banking_details() returns nothing while any value still starts with 'FILL'. Never invent an account number. For a real install these must be the CLIENT's account, not Boschly's, or their customer's money arrives in the wrong bank.",
+  "banking": {
+    "bank": "FILL IN — bank name",
+    "account_name": "FILL IN — account holder",
+    "account_number": "FILL IN — account number",
+    "branch_code": "FILL IN — branch code",
+    "reference_label": "Use your quote number as the reference"
+  },
   "terms": "This quote is valid for {validity_days} days from the date of issue. Prices assume access to the opening as inspected on site. Any additional work found on the day will be quoted separately and agreed with you before it is carried out.",
-  "_customer_message_note": "The WhatsApp the customer receives. {first_name} {business} {quote_number} {total} {validity_days} {phone} are filled in; the line items and total are rendered by code so the figures always match the PDF.",
+  "_customer_message_note": "The WhatsApp the customer receives — ONE short message carrying ONE link, changed 2026-08-21. It used to attach the PDF and paste a second Paystack URL underneath, which meant three things to look at and a document that a phone opens in a viewer she then has to back out of. Now the link is the whole thing: it opens a branded page with the quote, the banking details and a big Pay button. {first_name} {business} {quote_number} {total} {validity_days} {phone} are filled in; every figure is rendered by code so it always matches the page and the amount the link actually charges.",
   "customer_message": {
     "greeting": "Hi {first_name} 👋",
     "thanks": "Thank you for choosing {business}.",
-    "intro": "Here's the quote for the work we looked at today — *{quote_number}*.",
-    "attached": "The full quote is attached. It's valid for {validity_days} days.",
+    "intro": "Your quote *{quote_number}* is ready — *{total}*.",
+    "link_line": "Tap here to view it and pay securely:",
+    "validity": "The quote is valid for {validity_days} days.",
     "cta": "Reply *YES* and we'll book the installation.",
     "signoff": "{business} · {phone}"
   },
@@ -60,8 +82,8 @@
     "full_accept_line": "Here's the secure payment link — *{deposit}*:",
     "paid_ack": "Payment received, thank you! We'll be in touch shortly to book the date.",
     "web_button": "Pay the {deposit} deposit",
-    "web_button_full": "Pay {deposit} securely",
+    "full_web_button": "Pay {deposit} securely",
     "pdf_line": "A secure payment link for the {deposit} deposit was sent with this quote on WhatsApp.",
-    "pdf_line_full": "A secure payment link for {deposit} was sent with this quote on WhatsApp."
+    "full_pdf_line": "A secure payment link for {deposit} was sent with this quote on WhatsApp."
   }
 }

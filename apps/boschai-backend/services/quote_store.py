@@ -184,11 +184,21 @@ def insert_quote(quote: dict) -> dict:
     return (result.data or [row])[0]
 
 
-def update_quote(quote_id: str, fields: dict) -> None:
+def update_quote(quote_id: str, fields: dict) -> bool:
+    """Write fields to a quote. Returns whether it actually landed.
+
+    Swallowing the error is right — a quote that has already reached the customer
+    must not be undone by a failed column write — but the CALLER needs to know. The
+    payment link lives in one of these columns, and the quote page reads it back from
+    the database. If the write is silently lost, the customer opens a page with no
+    way to pay, which is the failure this whole system exists to remove.
+    """
     try:
         _db().table("quotes").update(fields).eq("id", quote_id).execute()
+        return True
     except Exception as exc:
         print(f"[quotebot] could not update quote {quote_id}: {exc}", flush=True)
+        return False
 
 
 def get_quote_by_token(token: str):

@@ -96,9 +96,30 @@ def start_scheduler():
         sch.add_job(_safe(email_drip.tick),
                     IntervalTrigger(minutes=1),
                     id="email_drip", replace_existing=True, misfire_grace_time=120)
-        print("[scheduler] email drip: draining email_queue 07:30-15:00 SAST, "
-              "3-9 min gaps", flush=True)
+        print("[scheduler] email drip: draining draft_queue + email_queue "
+              "07:30-15:00 SAST, 3-9 min gaps", flush=True)
     # === BoschAI: Email drip — END ===
+
+    # === BoschAI: Drip responder (auto-reply) — BEGIN ===
+    # Always registered: it exits instantly when no drip email has been sent.
+    # Detection/classification/Telegram pings run regardless; actual SENDING
+    # of auto-replies is gated inside on DRIP_AUTOREPLY_ENABLED (drafts-only
+    # mode otherwise).
+    from services import drip_responder
+    sch.add_job(_safe(drip_responder.run),
+                IntervalTrigger(minutes=10),
+                id="drip_responder", replace_existing=True, misfire_grace_time=300)
+    # === BoschAI: Drip responder — END ===
+
+    # === BoschAI: Recurring invoicing — BEGIN ===
+    # Always registered: it exits instantly when nothing is due. Whether a due
+    # invoice gets SENT or just drafted + Telegram-pinged is gated inside on
+    # INVOICE_AUTOSEND_ENABLED (same pattern as the drip responder above).
+    from services import invoicing
+    sch.add_job(_safe(invoicing.run),
+                CronTrigger(hour=7, minute=0, timezone=TZ),
+                id="invoicing", replace_existing=True, misfire_grace_time=3600)
+    # === BoschAI: Recurring invoicing — END ===
 
     # === BoschAI: LinkedIn (lane A) — BEGIN ===
     from config import LINKEDIN_SCHEDULER_ENABLED
@@ -120,7 +141,7 @@ def start_scheduler():
     sch.start()
     _scheduler = sch
     brief_status = "daily brief 06:00" if DAILY_BRIEF_ENABLED else "daily brief PAUSED"
-    print(f"[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, {brief_status}, pipeline nudges 08:30, follow-ups 08/11/14:00 SAST, sign-off watcher every 30 min", flush=True)
+    print(f"[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, {brief_status}, invoicing 07:00, pipeline nudges 08:30, follow-ups 08/11/14:00 SAST, sign-off watcher every 30 min", flush=True)
 
 
 def stop_scheduler():

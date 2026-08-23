@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Invoice {{INVOICE_NUMBER}} — {{CLIENT_NAME}}</title>
+<style>
+  @page { size: A4; margin: 0; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+
+  :root {
+    --ink: #14171a;
+    --soft: #555d63;
+    --faint: #8a9096;
+    --rule: #e3e3df;
+    --rule-strong: #14171a;
+    --accent: #1f5fbd;
+    --mono: "Cascadia Mono", "Segoe UI Mono", Consolas, ui-monospace, monospace;
+  }
+
+  /* Height is left to flow rather than pinned to 297mm: a fixed height plus an
+     absolutely-positioned footer pushed the closing block onto a second page.
+     An invoice is one page or it is wrong. */
+  body {
+    width: 210mm;
+    background: #fff; color: var(--ink);
+    font: 10pt/1.55 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    padding: 13mm 18mm 8mm;
+  }
+
+  /* ---------------------------------------------------------- masthead */
+  .top { display: flex; justify-content: space-between; align-items: flex-start;
+         padding-bottom: 7mm; border-bottom: 0.6pt solid var(--rule-strong); }
+  .brand { font-size: 19pt; font-weight: 680; letter-spacing: -.035em; line-height: 1; }
+  .brand-sub { font-size: 8.5pt; color: var(--faint); margin-top: 2.5mm; letter-spacing: .01em; }
+  .doc { text-align: right; }
+  .doc-word { font-family: var(--mono); font-size: 9pt; letter-spacing: .22em;
+              text-transform: uppercase; color: var(--faint); }
+  .doc-no { font-size: 13pt; font-weight: 660; letter-spacing: -.02em; margin-top: 1.5mm;
+            font-variant-numeric: tabular-nums; }
+
+  /* ------------------------------------------------------------ parties */
+  .parties { display: grid; grid-template-columns: 1fr 1fr 46mm; gap: 9mm;
+             padding: 6mm 0; border-bottom: 0.4pt solid var(--rule); }
+  .lab { font-family: var(--mono); font-size: 7.5pt; letter-spacing: .17em;
+         text-transform: uppercase; color: var(--faint); margin-bottom: 2.5mm; }
+  .who { font-weight: 650; font-size: 10.5pt; letter-spacing: -.01em; }
+  .line { color: var(--soft); font-size: 9.2pt; }
+  .dates div { display: flex; justify-content: space-between; gap: 4mm; font-size: 9.2pt; }
+  .dates div + div { margin-top: 2mm; }
+  .dates .k { color: var(--faint); }
+  .dates .v { font-variant-numeric: tabular-nums; font-weight: 560; }
+  .dates .due .v { color: var(--accent); font-weight: 660; }
+
+  /* -------------------------------------------------------------- items */
+  table { width: 100%; border-collapse: collapse; margin-top: 6mm; }
+  th { font-family: var(--mono); font-size: 7.5pt; letter-spacing: .17em;
+       text-transform: uppercase; color: var(--faint); text-align: left;
+       padding-bottom: 3mm; border-bottom: 0.6pt solid var(--rule-strong); font-weight: 700; }
+  th.r { text-align: right; }
+  td { padding: 4mm 0; border-bottom: 0.4pt solid var(--rule); vertical-align: top; }
+  td.r { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .item-h { font-weight: 640; font-size: 10.5pt; letter-spacing: -.012em; margin-bottom: 2mm; }
+  .item-p { color: var(--soft); font-size: 9pt; line-height: 1.6; max-width: 118mm; }
+  .item-p b { color: var(--ink); font-weight: 600; }
+
+  /* ------------------------------------------------------------- totals */
+  .totals { margin-top: 5mm; display: flex; justify-content: flex-end; }
+  .totals-inner { width: 76mm; }
+  .trow { display: flex; justify-content: space-between; padding: 2.5mm 0; font-size: 9.5pt; }
+  .trow .k { color: var(--soft); }
+  .trow .v { font-variant-numeric: tabular-nums; font-weight: 560; }
+  .grand { border-top: 0.6pt solid var(--rule-strong); margin-top: 2mm; padding-top: 4mm;
+           display: flex; justify-content: space-between; align-items: baseline; }
+  .grand .k { font-family: var(--mono); font-size: 8pt; letter-spacing: .17em;
+              text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  .grand .v { font-size: 17pt; font-weight: 680; letter-spacing: -.035em;
+              font-variant-numeric: tabular-nums; }
+  .vatnote { text-align: right; font-size: 8.2pt; color: var(--faint); margin-top: 2.5mm; }
+
+  /* ---------------------------------------------------------- pay block */
+  .pay { margin-top: 5mm; border: 0.5pt solid var(--rule-strong); padding: 5mm 7mm; }
+  .pay-head { font-family: var(--mono); font-size: 8pt; letter-spacing: .17em;
+              text-transform: uppercase; color: var(--faint); font-weight: 700;
+              margin-bottom: 4mm; }
+  .pay-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5mm; }
+  .pay-k { font-size: 7.8pt; color: var(--faint); letter-spacing: .04em;
+           text-transform: uppercase; margin-bottom: 1.2mm; }
+  .pay-v { font-family: var(--mono); font-size: 10pt; font-weight: 600;
+           letter-spacing: .02em; }
+  .pay-ref { margin-top: 5mm; padding-top: 4mm; border-top: 0.4pt solid var(--rule);
+             font-size: 9pt; color: var(--soft); }
+  .pay-ref b { font-family: var(--mono); color: var(--ink); font-weight: 700; }
+
+  .terms { margin-top: 5mm; font-size: 8.6pt; color: var(--soft); line-height: 1.6; }
+  .terms b { color: var(--ink); font-weight: 600; }
+
+  /* ------------------------------------------------------------- footer */
+  .foot { margin-top: 5mm;
+          padding-top: 3.5mm; border-top: 0.4pt solid var(--rule);
+          display: flex; justify-content: space-between; align-items: baseline;
+          font-size: 8.2pt; color: var(--faint); }
+  .foot b { color: var(--soft); font-weight: 600; }
+</style>
+</head>
+<body>
+
+  <div class="top">
+    <div>
+      <div class="brand">Boschly</div>
+      <div class="brand-sub">Practical AI systems for South African businesses</div>
+    </div>
+    <div class="doc">
+      <div class="doc-word">Invoice</div>
+      <div class="doc-no">{{INVOICE_NUMBER}}</div>
+    </div>
+  </div>
+
+  <div class="parties">
+    <div>
+      <div class="lab">From</div>
+      <div class="who">Heinrich Bosch</div>
+      <div class="line">trading as Boschly</div>
+      <div class="line">heinrichbosch343@gmail.com</div>
+    </div>
+    <div>
+      <div class="lab">Billed to</div>
+      <div class="who">{{CLIENT_NAME}}</div>
+      {{CLIENT_ADDRESS_LINES}}
+      <div class="line">{{CLIENT_EMAIL}}</div>
+      {{CLIENT_PHONE_LINE}}
+    </div>
+    <div class="dates">
+      <div><span class="k">Issued</span><span class="v">{{ISSUED_DATE}}</span></div>
+      <div class="due"><span class="k">Due</span><span class="v">{{DUE_DATE}}</span></div>
+      <div><span class="k">Terms</span><span class="v">{{TERMS_DAYS}} days</span></div>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>Description</th>
+        <th class="r">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <div class="item-h">{{ITEM_HEADING}}</div>
+          <div class="item-p">{{ITEM_DESCRIPTION}}</div>
+        </td>
+        <td class="r">{{AMOUNT}}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="totals">
+    <div class="totals-inner">
+      <div class="grand">
+        <span class="k">Total due</span>
+        <span class="v">{{AMOUNT}}</span>
+      </div>
+      <div class="vatnote">Not a VAT vendor. No VAT charged.</div>
+    </div>
+  </div>
+
+  <div class="pay">
+    <div class="pay-head">Payment details</div>
+    <div class="pay-grid">
+      <div>
+        <div class="pay-k">Bank</div>
+        <div class="pay-v">Capitec</div>
+      </div>
+      <div>
+        <div class="pay-k">Account name</div>
+        <div class="pay-v">Boschly</div>
+      </div>
+      <div>
+        <div class="pay-k">Account number</div>
+        <div class="pay-v">2542009917</div>
+      </div>
+      <div>
+        <div class="pay-k">Branch code</div>
+        <div class="pay-v">470010</div>
+      </div>
+    </div>
+    <div class="pay-ref">
+      Please use <b>{{INVOICE_NUMBER}}</b> as the payment reference, and email proof of
+      payment to heinrichbosch343@gmail.com.
+    </div>
+  </div>
+
+  <div class="terms">
+    Payment due within {{TERMS_DAYS}} days of the invoice date.
+  </div>
+
+  <div class="foot">
+    <span>Heinrich Bosch t/a <b>Boschly</b></span>
+    <span>Invoice {{INVOICE_NUMBER}} &middot; {{ISSUED_DATE}} &middot; Page 1 of 1</span>
+  </div>
+
+</body>
+</html>

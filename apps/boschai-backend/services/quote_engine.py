@@ -452,7 +452,11 @@ def _attach_payment(quote_id, quote: dict) -> dict:
     fields = {"deposit_amount": deposit, "payment_reference": created["reference"],
               "payment_url": created["url"], "payment_status": "unpaid",
               "payment_error": None}
-    store.update_quote(quote_id, fields)
+    # Whether it actually landed matters now that the quote PAGE is the only place
+    # the customer can pay from. The page reads payment_url back out of the database,
+    # so a silently lost write means she opens a page with no button while the link
+    # sits live at Paystack. When that happens the link goes in the message instead.
+    stored = store.update_quote(quote_id, fields)
 
     if payments.is_test_key():
         # Impossible to tell apart from the real thing by looking at it, and the whole
@@ -464,9 +468,14 @@ def _attach_payment(quote_id, quote: dict) -> dict:
     rides_along = bool(policy.get("send_with_quote"))
     _record_payment(quote=quote.get("quote_number"), outcome="created",
                     deposit=deposit, reference=created["reference"],
-                    sent_with_quote=rides_along, link_produced=bool(created.get("url")))
+                    sent_with_quote=rides_along, link_produced=bool(created.get("url")),
+                    stored=stored)
     return {**fields,
-            "wa_payment_url": created["url"] if rides_along else ""}
+            "payment_url_stored": stored,
+            # Only put the raw checkout URL in the WhatsApp when the page cannot show
+            # it. One message with one link is the whole point; a second link is a
+            # rescue, not the normal path.
+            "wa_payment_url": "" if stored else created["url"]}
 
 
 def payment_received(quote: dict, amount_rand: float, channel: str = "") -> None:
@@ -542,7 +551,8 @@ def issue(technician: str, session: dict) -> None:
 
     base = public_base_url()
     link = f"{base}/q/{quote['token']}"
-    pdf_url = f"{base}/q/{quote['token']}.pdf"
+    # The PDF is still rendered on demand at this URL and linked from the quote page;
+    # it is simply no longer pushed at her as an attachment.
 
     # Stored BEFORE any send. If a delivery fails there is still a record of a quote
     # that was issued and did not arrive — which is the row worth having.
@@ -557,10 +567,16 @@ def issue(technician: str, session: dict) -> None:
     # WhatsApp — the one that matters.
     wa_status, wa_error = "sent", None
     try:
-        whatsapp.send_media(quote["customer_phone"],
-                            doc.customer_message(quote, link, with_attachment=True,
-                                                 payment_url=quote.get("wa_payment_url", "")),
-                            pdf_url)
+        # ONE message, ONE link. It used to attach the PDF and paste the Paystack URL
+        # underneath, which put three things on her screen competing for the tap — and
+        # a PDF opens in a viewer she then has to back out of to reach the payment.
+        # The link opens a branded page carrying the quote, the EFT details and one
+        # big Pay button, so there is a single thing to press. The PDF is still there,
+        # downloadable from that page, for anyone who wants it for their records.
+        whatsapp.send_text(quote["customer_phone"],
+                           doc.customer_message(
+                               quote, link,
+                               payment_url=quote.get("wa_payment_url", "")))
     except Exception as exc:
         wa_status, wa_error = "failed", str(exc)[:400]
         print(f"[quotebot] delivery to {quote['customer_phone']} failed: {exc}", flush=True)
@@ -601,10 +617,14 @@ def issue(technician: str, session: dict) -> None:
         elif email_status == "failed":
             lines.append(f"→ Email to {quote['customer_email']} didn't go — "
                          f"{email_error}")
-        if quote.get("wa_payment_url"):
-            deposit = doc.fmt_money(quote.get("deposit_amount"), quote["currency"])
+        # Keyed on the LINK existing, not on whether it went in the message. The
+        # normal path now puts it on the quote page instead, and the technician still
+        # needs to know his customer has a way to pay.
+        if quote.get("payment_url"):
+            amount = doc.fmt_money(quote.get("deposit_amount"), quote["currency"])
             noun = "payment" if doc.deposit_is_full() else "deposit"
-            lines.append(f"→ {deposit} {noun} link included ✓")
+            where = "in the message" if quote.get("wa_payment_url") else "on the quote page"
+            lines.append(f"→ {amount} {noun} link {where} ✓")
         elif quote.get("payment_error"):
             lines.append(f"→ No payment link — {quote['payment_error']}")
         lines += ["", link]

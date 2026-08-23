@@ -182,6 +182,29 @@ def payment_policy() -> dict:
     return business().get("payment") or {}
 
 
+# The four fields that make a South African EFT possible. Anything less is not a
+# banking section, it is a half-written one on a customer's screen.
+_BANK_FIELDS = ("bank", "account_name", "account_number", "branch_code")
+
+
+def banking_details():
+    """The EFT details, or None while they are still placeholders.
+
+    Deliberately fails CLOSED. An unfinished banking block is worse than no banking
+    block: a customer who tries to pay a made-up account number loses money and trust
+    in the same afternoon, and it is the business that gets the phone call. So the
+    section only renders once every field has been filled in with something that is
+    not obviously a placeholder.
+    """
+    details = business().get("banking") or {}
+    values = [str(details.get(f) or "").strip() for f in _BANK_FIELDS]
+    if not all(values):
+        return None
+    if any(v.upper().startswith("FILL") or "FILL IN" in v.upper() for v in values):
+        return None
+    return details
+
+
 def deposit_for(quote: dict):
     """What the customer is asked for up front, in rand — or None for no link at all.
 
@@ -219,9 +242,19 @@ def deposit_is_full(quote: dict = None) -> bool:
 
 
 def _payment_copy(quote: dict, key: str) -> str:
-    """Pick the deposit or the full-amount wording for the same slot."""
+    """Pick the deposit or the full-amount wording for the same slot.
+
+    Falls back to the deposit wording when the full-amount one is missing, rather
+    than returning "". That fallback is not tidiness — two of these keys were once
+    named `web_button_full` instead of `full_web_button`, so at 100% the lookup
+    missed and the customer's Pay button rendered as a green rectangle with no words
+    on it. Slightly wrong wording is a typo; an unlabelled button is a dead end on
+    the one screen that has to work.
+    """
     policy = payment_policy()
-    return policy.get(f"full_{key}" if deposit_is_full() else key, "")
+    if deposit_is_full():
+        return policy.get(f"full_{key}") or policy.get(key, "")
+    return policy.get(key, "")
 
 
 def _fill(template: str, quote: dict) -> str:
@@ -240,43 +273,41 @@ def _fill(template: str, quote: dict) -> str:
             .replace("{email}", biz.get("email", "")))
 
 
-def customer_message(quote: dict, link: str = "", with_attachment: bool = True,
+def customer_message(quote: dict, link: str = "", with_attachment: bool = False,
                      payment_url: str = "") -> str:
-    """The WhatsApp the customer gets. The copy comes from quote_business.json; the
-    line items, the total and the deposit are rendered here so they always match the
-    attached PDF and the amount the payment link actually charges."""
+    """The WhatsApp the customer gets: one short message carrying one link.
+
+    It used to be the whole quote — every line item, the total, the promises, an
+    attached PDF and a second Paystack URL underneath. That is three things to look
+    at and a document a phone opens in a viewer she then has to back out of, and the
+    two links competed with each other.
+
+    Now the link IS the quote. It opens a branded page with the line items, the
+    banking details and one big Pay button, so there is a single thing to tap. The
+    message only has to earn that tap: who it is from, what it is, what it costs.
+
+    `with_attachment` and `payment_url` are kept so nothing that calls this breaks,
+    but neither adds a second link any more — the page carries the payment.
+    """
     biz = business()
     copy = biz["customer_message"]
-    currency = quote.get("currency", "ZAR")
 
-    parts = [_fill(copy["greeting"], quote), "", _fill(copy["thanks"], quote), "",
+    parts = [_fill(copy["greeting"], quote), "",
+             _fill(copy["thanks"], quote),
              _fill(copy["intro"], quote), ""]
 
-    for item in quote.get("line_items") or []:
-        amount = item.get("amount")
-        suffix = f"  —  {fmt_money(amount, currency)}" if amount is not None else ""
-        parts.append(f"• {item.get('description', '')}{suffix}")
+    if link:
+        parts += [_fill(copy.get("link_line", "Tap here to view it:"), quote), link, ""]
 
-    parts += ["", f"*Total: {fmt_money(quote.get('total'), currency)}*", ""]
-
-    if with_attachment:
-        parts.append(_fill(copy["attached"], quote))
-        if link:
-            parts.append(link)
-    elif link:
-        # No PDF attached, so the link IS the quote and has to carry the weight.
-        parts.append("Your full quote is here — it's valid for "
-                     f"{biz.get('validity_days', 30)} days:\n{link}")
-    parts.append("")
-
-    for promise in biz.get("promises", []):
-        parts.append(f"✓ {promise}")
-
+    # Normally empty. It is filled only when the payment link could NOT be stored on
+    # the quote, which means the page will render without a Pay button — so the raw
+    # checkout URL comes here instead rather than leaving her no way to pay at all.
     if payment_url:
-        parts += ["", _fill(_payment_copy(quote, "quote_line"), quote), payment_url]
+        parts += [_fill(_payment_copy(quote, "quote_line"), quote), payment_url, ""]
 
-    parts += ["", _fill(copy["cta"], quote), "", _fill(copy["signoff"], quote)]
-    return "\n".join(parts)
+    parts += [_fill(copy.get("validity", ""), quote), "",
+              _fill(copy["cta"], quote), "", _fill(copy["signoff"], quote)]
+    return "\n".join(p for p in parts if p is not None)
 
 
 def customer_email(quote: dict, link: str = "") -> tuple:
@@ -523,10 +554,27 @@ def _esc(value) -> str:
 
 
 def render_html(quote: dict, pdf_url: str = "") -> str:
-    """The same quote as a phone-friendly page: what the customer taps, and the
-    fallback whenever the PDF could not be attached."""
+    """The page the customer opens — and now the ONLY thing she is sent.
+
+    The WhatsApp used to carry the quote, a PDF and a payment link. It carries one
+    link to here instead, so this page has to do all of it: prove who it is from,
+    show the work and the price, offer the EFT details for people who will never tap
+    a card button, and put one unmissable Pay at the end of the scroll.
+
+    Ordered the way she reads it, not the way a document is laid out. The amount comes
+    before the detail, because the first question is always "how much"; the Pay button
+    sits after the line items rather than above them, because a button offered before
+    she has seen what she is paying for reads as a demand.
+
+    Colours come from quote_business.json, so re-skinning it for another client — or
+    for FIXITT's real palette once it is confirmed — is a config edit.
+    """
     biz = business()
     currency = quote.get("currency", "ZAR")
+    brand = biz.get("brand") or {}
+    ink = brand.get("ink", "#12161c")
+    accent = brand.get("accent", "#1b6ef3")
+    pay_colour = brand.get("pay", "#0b8f4d")
 
     items = "".join(
         f'<tr><td>{_esc(i.get("description"))}</td>'
@@ -534,23 +582,44 @@ def render_html(quote: dict, pdf_url: str = "") -> str:
         for i in (quote.get("line_items") or [])
     )
     promises = "".join(f"<li>{_esc(p)}</li>" for p in biz.get("promises", []))
+    trust = "".join(f"<span>{_esc(t)}</span>" for t in biz.get("trust", []))
+    trust_strip = f'<div class="trust">{trust}</div>' if trust else ""
     contact = "<br>".join(x for x in (
         _esc(display_phone(quote.get("customer_phone"))),
         _esc(quote.get("customer_email")), _esc(quote.get("site_address"))) if x)
-    download = (f'<a class="dl" href="{_esc(pdf_url)}">Download the PDF</a>'
+    download = (f'<a class="dl" href="{_esc(pdf_url)}">Download this quote as a PDF</a>'
                 if pdf_url else "")
 
-    # The pay button leads, because a customer who opened this page has already decided
-    # to look. Only rendered while the quote is actually unpaid -- showing "Pay now" on
-    # something already settled is how you get an angry phone call.
+    # The pay button sits AFTER the work and the total, not before -- she has to see
+    # what she is paying for first. Only rendered while the quote is actually unpaid;
+    # showing "Pay now" on something already settled is how you get an angry call.
     pay = ""
     deposit = deposit_for(quote)
-    if quote.get("payment_url") and deposit is not None and quote.get("payment_status") != "paid":
+    paid = quote.get("payment_status") == "paid"
+    if quote.get("payment_url") and deposit is not None and not paid:
         label = _fill(_payment_copy(quote, "web_button"), quote)
         pay = (f'<a class="pay" href="{_esc(quote["payment_url"])}">{_esc(label)}</a>'
-               f'<p class="secure">Secured by Paystack. Card payments in ZAR.</p>')
-    elif quote.get("payment_status") == "paid":
-        pay = '<div class="paid">Paid — thank you</div>' 
+               '<p class="secure">Secured by Paystack &middot; Visa, Mastercard '
+               '&amp; instant EFT</p>')
+    elif paid:
+        pay = '<div class="paid">Paid in full — thank you</div>'
+
+    # EFT details for the customers who will never tap a card button. Renders only
+    # once the real account is filled in; see banking_details().
+    bank = banking_details()
+    banking_block = ""
+    if bank and not paid:
+        rows = "".join(
+            f'<tr><td>{_esc(lbl)}</td><td class="bv">{_esc(bank.get(key, ""))}</td></tr>'
+            for lbl, key in (("Bank", "bank"), ("Account name", "account_name"),
+                             ("Account number", "account_number"),
+                             ("Branch code", "branch_code")))
+        reference = _esc(bank.get("reference_label") or "Use your quote number as the reference")
+        banking_block = (
+            '<div class="lbl">Rather pay by EFT?</div>'
+            f'<table class="bank">{rows}'
+            f'<tr><td>Reference</td><td class="bv">{_esc(quote.get("quote_number"))}</td></tr>'
+            f'</table><p class="ref">{reference}</p>')
     terms = _esc(biz.get("terms", "").replace("{validity_days}",
                                               str(biz.get("validity_days", 30))))
     cta = _esc(biz["customer_message"]["cta"].replace("*", ""))
@@ -561,58 +630,91 @@ def render_html(quote: dict, pdf_url: str = "") -> str:
         "<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">"
         f"<title>{_esc(quote.get('quote_number'))} &middot; {_esc(biz['name'])}</title>"
         "<style>"
-        ":root{--ink:#12161c;--accent:#1b6ef3;--muted:#7a8694;--rule:#dee4eb}"
+        f":root{{--ink:{ink};--accent:{accent};--pay:{pay_colour};"
+        "--muted:#7a8694;--rule:#dee4eb;--paper:#fff;--wash:#f6f8fa}"
         "*{box-sizing:border-box}"
         "body{margin:0;background:#eef1f5;color:var(--ink);"
-        "font:16px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}"
-        ".sheet{max-width:720px;margin:0 auto;background:#fff;min-height:100vh}"
-        "header{background:var(--ink);color:#fff;padding:26px 22px}"
-        "header h1{margin:0;font-size:21px;letter-spacing:-.2px}"
-        "header p{margin:5px 0 0;color:#96a2b0;font-size:13px}"
-        ".num{margin-top:16px;display:flex;justify-content:space-between;align-items:baseline}"
-        ".num strong{font-size:20px}.num span{color:#96a2b0;font-size:13px}"
-        "main{padding:22px}"
-        ".lbl{font-size:11px;letter-spacing:.09em;text-transform:uppercase;"
-        "color:var(--muted);font-weight:700;margin:22px 0 7px}"
+        "font:16px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,"
+        "'Helvetica Neue',Arial,sans-serif;-webkit-font-smoothing:antialiased}"
+        ".sheet{max-width:640px;margin:0 auto;background:var(--paper);min-height:100vh}"
+        # The header carries the identity: name, what they do, and the amount. She
+        # should know who this is from and what it costs before she scrolls at all.
+        "header{background:var(--ink);color:#fff;padding:28px 24px 26px}"
+        "header h1{margin:0;font-size:22px;letter-spacing:-.3px;font-weight:700}"
+        "header .tag{margin:6px 0 0;color:#9aa6b4;font-size:12.5px}"
+        ".hero{margin-top:22px;padding-top:20px;border-top:1px solid rgba(255,255,255,.13)}"
+        ".hero .cap{color:#9aa6b4;font-size:11px;letter-spacing:.1em;"
+        "text-transform:uppercase;font-weight:700}"
+        ".hero .big{font-size:34px;font-weight:800;letter-spacing:-1px;margin-top:4px}"
+        ".hero .meta{color:#9aa6b4;font-size:12.5px;margin-top:6px}"
+        ".trust{background:var(--wash);border-bottom:1px solid var(--rule);"
+        "padding:13px 24px;display:flex;flex-wrap:wrap;gap:6px 16px}"
+        ".trust span{color:var(--muted);font-size:11.5px;position:relative;"
+        "padding-left:15px;line-height:1.45}"
+        ".trust span::before{content:'\\2713';position:absolute;left:0;top:0;"
+        "color:var(--pay);font-weight:700}"
+        "main{padding:6px 24px 24px}"
+        ".lbl{font-size:11px;letter-spacing:.1em;text-transform:uppercase;"
+        "color:var(--muted);font-weight:700;margin:26px 0 8px}"
         "table{width:100%;border-collapse:collapse}"
-        "td{padding:11px 0;border-bottom:1px solid var(--rule);vertical-align:top}"
-        ".amt{text-align:right;white-space:nowrap;padding-left:14px}"
+        "td{padding:12px 0;border-bottom:1px solid var(--rule);vertical-align:top;"
+        "font-size:15px}"
+        ".amt{text-align:right;white-space:nowrap;padding-left:14px;font-variant-numeric:"
+        "tabular-nums}"
         ".total{display:flex;justify-content:space-between;align-items:center;"
-        "background:#f6f8fa;padding:15px 17px;margin-top:16px;border-radius:9px}"
-        ".total b{font-size:21px}"
-        "ul{list-style:none;padding:0;margin:16px 0}"
-        "ul li{padding:8px 0 8px 25px;position:relative;font-size:14.5px}"
+        "background:var(--wash);padding:16px 18px;margin-top:18px;border-radius:10px}"
+        ".total b{font-size:22px;font-variant-numeric:tabular-nums}"
+        "ul{list-style:none;padding:0;margin:14px 0 0}"
+        "ul li{padding:7px 0 7px 25px;position:relative;font-size:14.5px}"
         "ul li::before{content:'';position:absolute;left:4px;top:14px;width:7px;"
         "height:7px;border-radius:50%;background:var(--accent)}"
-        ".dl{display:block;text-align:center;background:var(--accent);color:#fff;"
-        "text-decoration:none;padding:14px;border-radius:9px;font-weight:600;margin:22px 0}"
-        ".pay{display:block;text-align:center;background:#0b8f4d;color:#fff;"
-        "text-decoration:none;padding:17px;border-radius:9px;font-weight:700;"
-        "font-size:17px;margin:24px 0 8px}"
-        ".secure{text-align:center;color:var(--muted);font-size:12px;margin:0 0 18px}"
-        ".paid{text-align:center;background:#e8f6ee;color:#0b6b3a;padding:15px;"
-        "border-radius:9px;font-weight:700;margin:24px 0}"
-        ".terms{color:var(--muted);font-size:12.5px;margin-top:22px}"
-        "footer{border-top:1px solid var(--rule);margin-top:26px;padding:18px 22px 40px;"
-        "color:var(--muted);font-size:12px}"
+        # The button people came to press. Full width, high contrast, and it sticks to
+        # the bottom of the viewport on a phone so it is never more than a thumb away.
+        ".pay{display:block;text-align:center;background:var(--pay);color:#fff;"
+        "text-decoration:none;padding:19px;border-radius:11px;font-weight:800;"
+        "font-size:18px;letter-spacing:-.2px;margin:26px 0 8px;"
+        "box-shadow:0 6px 18px rgba(11,143,77,.28)}"
+        ".pay:active{transform:translateY(1px)}"
+        ".secure{text-align:center;color:var(--muted);font-size:12px;margin:0 0 6px}"
+        ".paid{text-align:center;background:#e8f6ee;color:#0b6b3a;padding:17px;"
+        "border-radius:11px;font-weight:800;margin:26px 0}"
+        ".bank td{font-size:14px}.bank .bv{text-align:right;font-weight:600;"
+        "font-variant-numeric:tabular-nums}"
+        ".ref{color:var(--muted);font-size:12px;margin:8px 0 0}"
+        ".dl{display:block;text-align:center;border:1px solid var(--rule);"
+        "color:var(--accent);text-decoration:none;padding:14px;border-radius:10px;"
+        "font-weight:600;margin:22px 0 0;font-size:14.5px}"
+        ".terms{color:var(--muted);font-size:12.5px;margin-top:20px}"
+        "footer{border-top:1px solid var(--rule);margin-top:26px;padding:20px 24px 44px;"
+        "color:var(--muted);font-size:12px;line-height:1.7}"
         "@media(prefers-color-scheme:dark){body{background:#0b0e12}"
-        ".sheet{background:#151a21;color:#e7ecf2}td{border-color:#252c36}"
-        ".total{background:#1c232c}footer{border-color:#252c36}}"
+        ".sheet{background:#151a21;color:#e7ecf2}"
+        ":root{--paper:#151a21;--wash:#1c232c;--rule:#252c36}"
+        "td{border-color:#252c36}.trust{background:#11161d;border-color:#252c36}"
+        ".dl{border-color:#2b3542}footer{border-color:#252c36}}"
         "</style></head><body><div class=\"sheet\"><header>"
-        f"<h1>{_esc(biz['name'])}</h1><p>{_esc(biz.get('tagline', ''))}</p>"
-        f"<div class=\"num\"><strong>{_esc(quote.get('quote_number'))}</strong>"
-        f"<span>{_esc(fmt_date(quote.get('issued_date') or today()))}</span></div>"
-        "</header><main>"
-        "<div class=\"lbl\">Quoted for</div>"
+        f"<h1>{_esc(biz['name'])}</h1>"
+        f"<p class=\"tag\">{_esc(biz.get('tagline', ''))}</p>"
+        "<div class=\"hero\"><div class=\"cap\">Your quote</div>"
+        f"<div class=\"big\">{_esc(fmt_money(quote.get('total'), currency))}</div>"
+        f"<div class=\"meta\">{_esc(quote.get('quote_number'))} &middot; "
+        f"{_esc(fmt_date(quote.get('issued_date') or today()))} &middot; "
+        f"valid {_esc(str(biz.get('validity_days', 30)))} days</div>"
+        "</div></header>"
+        f"{trust_strip}<main>"
+        "<div class=\"lbl\">Prepared for</div>"
         f"<div><strong>{_esc(quote.get('customer_name'))}</strong><br>{contact}</div>"
         "<div class=\"lbl\">The work</div>"
         f"<table>{items}</table>"
         "<div class=\"total\"><span>Total</span>"
         f"<b>{_esc(fmt_money(quote.get('total'), currency))}</b></div>"
-        f"{pay}{download}<ul>{promises}</ul>"
+        f"{pay}{banking_block}"
+        "<div class=\"lbl\">What you get</div>"
+        f"<ul>{promises}</ul>{download}"
         f"<p class=\"terms\">{terms}</p><p class=\"terms\">{cta}</p>"
         "</main><footer>"
-        f"{address}<br>{_esc(biz.get('phone', ''))} &middot; "
+        f"<strong>{_esc(biz['name'])}</strong><br>{address}<br>"
+        f"{_esc(biz.get('phone', ''))} &middot; "
         f"{_esc(biz.get('email', ''))} &middot; {_esc(biz.get('website', ''))}"
         "</footer></div></body></html>"
     )

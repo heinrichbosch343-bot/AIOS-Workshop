@@ -1,0 +1,7 @@
+# Extends Nixpacks' auto-detected Python build (pip install -r requirements.txt)
+# with the headless Chromium browser that services/invoicing.py uses to render
+# invoice PDFs. Runs as its own phase AFTER the auto-detected "install" phase,
+# so it never touches or replaces that step.
+[phases.playwright-browser]
+dependsOn = ["install"]
+cmds = ["playwright install --with-deps chromium"]

@@ -144,6 +144,22 @@ def start_scheduler():
     print(f"[scheduler] started: knowledge reindex 04:00, auto-draft 05:50, {brief_status}, invoicing 07:00, pipeline nudges 08:30, follow-ups 08/11/14:00 SAST, sign-off watcher every 30 min", flush=True)
 
 
+def job_status(job_id: str) -> dict:
+    """Is a given job actually registered on the live scheduler, and when does it next run?
+
+    Registering a job in code and having it registered on the running instance are
+    different claims. The health probes report the second one.
+    """
+    if not _scheduler:
+        return {"scheduler_running": False, "registered": False, "next_run": None}
+    job = _scheduler.get_job(job_id)
+    return {
+        "scheduler_running": True,
+        "registered": bool(job),
+        "next_run": job.next_run_time.isoformat() if job and job.next_run_time else None,
+    }
+
+
 def stop_scheduler():
     global _scheduler
     if _scheduler:

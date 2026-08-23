@@ -12,13 +12,14 @@ drip auto-reply) - off means every invoice still gets generated and staged as
 a Gmail draft, with a Telegram heads-up, so nothing is silently skipped.
 """
 import asyncio
+import re
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from playwright.async_api import async_playwright
 
-from config import INVOICE_AUTOSEND_ENABLED
+from config import INVOICE_AUTOSEND_ENABLED, TELEGRAM_ENABLED
 from db.client import supabase
 from services import email as email_service
 from services.notify import send_telegram
@@ -32,6 +33,28 @@ _MONTHS = ["January", "February", "March", "April", "May", "June",
 
 def _today() -> date:
     return datetime.now(TZ).date()
+
+
+def _alert(message: str) -> None:
+    """Tell Heinrich something went wrong, through whichever channel is actually on.
+
+    This job runs once a day, unattended, and Telegram notifications are switched off
+    (TELEGRAM_ENABLED=0) — so a failed invoice would otherwise be a log line in a
+    container nobody reads, and the first sign of trouble would be a client who never
+    got billed. When Telegram is off the alert is emailed to the mailbox this backend
+    already sends from. Failures only: a successful send says nothing to anybody.
+    """
+    plain = re.sub(r"<[^>]+>", "", message)
+    try:
+        send_telegram(message)
+        if TELEGRAM_ENABLED:
+            return
+        email_service.send_new(email_service.own_address(),
+                               "Boschly invoicing needs a look", plain)
+    except Exception as exc:
+        # An alert that raises would turn one client's failed invoice into a crash
+        # that skips everybody else's. Whatever happens here, the loop goes on.
+        print(f"[invoicing] alert could not be delivered: {exc} - {plain}", flush=True)
 
 
 def _fmt_date(d: date) -> str:
@@ -164,7 +187,7 @@ def generate_and_send(row: dict) -> None:
                              f"Set INVOICE_AUTOSEND_ENABLED=1 in Railway to send these automatically.")
     except Exception as exc:
         print(f"[invoicing] FAILED to send/draft {invoice_number} for {row['client_name']}: {exc}", flush=True)
-        send_telegram(f"⚠️ Invoice {invoice_number} for {row['client_name']} failed: {exc}")
+        _alert(f"⚠️ Invoice {invoice_number} for {row['client_name']} failed: {exc}")
         return
 
     supabase.table("invoices").insert({
@@ -204,4 +227,4 @@ def run() -> None:
             generate_and_send(row)
         except Exception as exc:
             print(f"[invoicing] {row['client_name']}: unexpected error: {exc}", flush=True)
-            send_telegram(f"⚠️ Invoicing failed for {row['client_name']}: {exc}")
+            _alert(f"⚠️ Invoicing failed for {row['client_name']}: {exc}")

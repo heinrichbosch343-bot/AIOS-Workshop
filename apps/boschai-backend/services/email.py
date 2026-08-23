@@ -400,6 +400,16 @@ def create_draft_with_attachment(to: str, subject: str, body: str,
     return {"draft_id": draft.get("id"), "to": to, "subject": subject}
 
 
+def own_address() -> str:
+    """Which mailbox this backend is connected to and sends as.
+
+    Used when something needs to tell Heinrich rather than a client — an invoice
+    that failed, say — so the alert goes to whichever account is actually wired up
+    rather than an address hardcoded somewhere and left to rot.
+    """
+    return _gmail().users().getProfile(userId="me").execute()["emailAddress"]
+
+
 def extract_address(value: str) -> str:
     """Public wrapper: bare email address from a To/From header value."""
     return _addr(value)

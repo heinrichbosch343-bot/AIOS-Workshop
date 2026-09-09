@@ -26,7 +26,7 @@ router = APIRouter(tags=["invoicing"])
 
 # Bumped by hand whenever this file changes, so /invoices/ready proves which build
 # Railway is actually running rather than which build we hope it is running.
-BUILD = "invoicing-1 (2026-08-23, first deploy)"
+BUILD = "invoicing-2 (2026-09-09, drafts endpoint + token notes corrected)"
 
 TZ = ZoneInfo("Africa/Johannesburg")
 _BOOTED_AT = time.time()

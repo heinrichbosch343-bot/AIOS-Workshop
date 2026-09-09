@@ -1,9 +1,9 @@
 """Can we actually reach the customer right now — on WhatsApp, and by email?
 
 Configuration being *present* is not the same as it *working*. A Twilio token can be
-rotated, a Google refresh token expires every seven days while the OAuth consent screen
-sits in Testing mode, and both failures look identical from outside: the quote goes out,
-or it doesn't, and nobody knows why.
+rotated, a Google refresh token dies the moment the account password changes (Gmail
+scopes are invalidated on a password change), and both failures look identical from
+outside: the quote goes out, or it doesn't, and nobody knows why.
 
 So this asks each provider directly, with a read-only call that sends nothing to anyone.
 
@@ -73,8 +73,9 @@ def whatsapp_health() -> dict:
 def email_health() -> dict:
     """Whether the Gmail connector can still authenticate, and as whom.
 
-    The refresh token behind this expires every seven days while the Google project is
-    in Testing mode, which is why a quote that emailed fine last week silently stops.
+    The consent screen is published, so the refresh token has no expiry clock. It dies
+    on a Google password change, on revocation, or after six months unused - which is
+    why a quote that emailed fine last week can silently stop.
     getProfile is read-only and sends nothing.
     """
     def check():
@@ -97,10 +98,11 @@ def email_health() -> dict:
         if "No Google token" in detail:
             result = {**result, "fix": "Visit /auth/google once to connect the mailbox."}
         elif "invalid_grant" in detail or "expired" in detail.lower():
-            result = {**result, "fix": ("The Google refresh token has expired — this "
-                                        "happens every 7 days while the OAuth consent "
-                                        "screen is in Testing mode. Re-authorise at "
-                                        "/auth/google, or publish the consent screen.")}
+            result = {**result, "fix": ("The Google refresh token is no longer valid. The "
+                                        "consent screen is published, so the usual cause is "
+                                        "a Google account password change, which invalidates "
+                                        "tokens carrying Gmail scopes. Re-authorise at "
+                                        "/auth/google.")}
     return result
 
 

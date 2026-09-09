@@ -559,8 +559,8 @@ def channels():
     an email or a payment.
 
     Config being PRESENT is not the same as it WORKING: a Twilio token can be rotated
-    and a Google refresh token expires every seven days while the consent screen is in
-    Testing mode. Both look identical from outside until you ask.
+    and a Google refresh token is invalidated by a password change on the account.
+    Both look identical from outside until you ask.
     """
     from services import delivery_health
     result = delivery_health.all_channels()

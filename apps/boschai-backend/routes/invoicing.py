@@ -115,9 +115,11 @@ def ready():
         blockers.append("Gmail won't authenticate, so a due invoice can be generated but not "
                         "delivered: " + str(email.get("fix") or email.get("detail", ""))[:160])
     else:
-        notes.append("The Google refresh token behind this expires every 7 days while the OAuth "
-                     "consent screen is in Testing mode. Publish the consent screen, or "
-                     "re-authorise at /auth/google, or an invoice due next week silently fails.")
+        notes.append("The consent screen is published, so the Google refresh token no longer "
+                     "expires on a clock. What still kills it: changing the Google account "
+                     "password (Gmail scopes are invalidated on a password change), revoking "
+                     "access, or six months unused. After a password change, re-authorise at "
+                     "/auth/google or the next invoice silently fails.")
 
     # 4. Sending vs drafting: not a blocker, but the difference between a client
     #    being invoiced and a draft sitting in Gmail waiting for a human.

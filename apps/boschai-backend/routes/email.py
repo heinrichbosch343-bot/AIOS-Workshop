@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from config import API_SECRET_KEY
 from services import email as email_service
 from services import autodraft
+from services import offer_inbox
 
 router = APIRouter(prefix="/email", tags=["email"])
 
@@ -127,3 +128,39 @@ def save_draft(request: DraftRequest, x_api_key: str = Header(...)):
         email_service.create_draft_with_attachment, to, request.subject,
         request.body, blob, request.attachment_filename or "offer.xlsx",
         request.mime_type)
+
+
+class OfferSendCheck(BaseModel):
+    """One merchant the offer desk sent an offer to, and where it last looked."""
+    id: str
+    email: str
+    offer_name: str = ""
+    since: str
+    after_ms: int = 0
+
+
+class OfferRepliesRequest(BaseModel):
+    sends: list[OfferSendCheck]
+
+
+_MAX_SENDS_PER_CHECK = 60
+
+
+@router.post("/offer-replies")
+def offer_replies(request: OfferRepliesRequest, x_api_key: str = Header(...)):
+    """For each send: did the draft go out, and what has the buyer written since.
+
+    Read-only against the mailbox. The desk polls this; nothing here changes a
+    stage, writes a draft, or sends. See services/offer_inbox.py for the split
+    between what the model is asked and what the desk decides.
+    """
+    verify_key(x_api_key)
+    if len(request.sends) > _MAX_SENDS_PER_CHECK:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{len(request.sends)} sends in one check; the limit is {_MAX_SENDS_PER_CHECK}")
+    for send in request.sends:
+        if not _ADDRESS.match(send.email.strip()):
+            raise HTTPException(status_code=400, detail=f"Not a valid address: {send.email!r}")
+    return _guard_drive_errors(
+        offer_inbox.check, [s.model_dump() for s in request.sends])

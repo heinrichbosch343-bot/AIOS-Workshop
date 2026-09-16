@@ -55,3 +55,7 @@ node_modules/
 
 # Claude Code personal settings (permission grants) - never commit
 .claude/settings.local.json
+
+# Hormozi library: the books are copyrighted and the index (Hormozi/.index/) is
+# their full text in passages. Both stay on this machine; this repo pushes to GitHub.
+Hormozi/

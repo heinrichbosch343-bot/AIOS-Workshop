@@ -105,6 +105,7 @@ These are how you know your AIOS is working:
 | `outputs/crm/`     | The outreach CRM data layer: `crm.csv` (all contacts), `activity-log.csv` (every touch), `goals.json` (weekly targets). Viewed live in the CRM dashboard — see "Outreach CRM" below. |
 | `outputs/linkedin/` | LinkedIn content-ops data: `ideas.csv` (post ideas + weekly plan), `stats.csv` (impressions/followers log), `analytics/` (drop LinkedIn .xlsx exports here to import). Viewed in the CRM dashboard's LinkedIn tab. |
 | `shares/`          | Packaged systems for sharing. Created by `/share`, ready to hand off.                  |
+| `Hormozi/`         | Alex Hormozi's books as PDFs plus their search index (`.index/`). Read by `/hormozi` and `/alex`. **Gitignored**: copyrighted text, never shared or packaged. |
 | `claude-vault/`    | **The module library.** Every system Boschly can build, packaged as a drag-and-drop folder that installs itself (INSTALL.md + `_connectors/` + `_patterns/`). Start with [claude-vault/README.md](claude-vault/README.md) for the format, [CATALOGUE.md](claude-vault/CATALOGUE.md) for what exists, [BUILD-PLAN.md](claude-vault/BUILD-PLAN.md) for the order. Planned 2026-07-27, Wave 0 not yet started. |
 
 ---
@@ -275,6 +276,25 @@ Loads the strategy layer and the context window, then runs positioning → packa
 **This also runs implicitly.** Whenever Heinrich asks for content, load the strategy layer and the context window first, whether or not the command was typed. See "Content cycle" below.
 
 Example: `/develop the speed-to-lead voice agent`
+
+### /hormozi [question or job] (same as /alex)
+
+**Purpose:** Ask Alex Hormozi's four books anything, or build with them: an offer PDF for a client, a money model, a lead magnet, a critique of an existing offer.
+
+Local RAG, added 2026-09-16. The PDFs sit in `Hormozi/` ($100M Offers, $100M Leads, $100M Money Models, $100M Lost Chapters). **846 of 907 PDF pages are indexed, about 220k words in 717 passages.** The other 61 are 36 blank pages (or a lone QR code), 8 legal pages, 6 contents pages, 6 title pages and 5 section-heading pages whose heading every passage already carries. `hormozi_index.py --audit` lists each skipped page with its reason and confirms the saved index matches. `scripts/hormozi_index.py` cleans each page, labels it with its section and chapter from the PDF bookmarks, cuts ~380-word passages that never cross a chapter, and embeds them with Voyage `voyage-3-large` into `Hormozi/.index/`. Unchanged books are skipped by sha256, so dropping in a fifth book and re-running costs only that book. A full build was about five US cents.
+
+**The words inside the images are indexed too, and the first pass missed them.** A PDF's text layer holds nothing written inside an image, and these books put real content there. The 365 images break down as 210 diagrams (whiteboard LTGP and CAC formulas, the Value Equation), 82 typed callout boxes saved as pictures, 25 ad and post screenshots, 21 tables and 4 handwritten pages. `scripts/hormozi_figures.py` cuts each one out to `Hormozi/figures/<slug>/`, Claude reads the picture and writes `<id>.json` (`kind` + `text`, transcribed exactly as drawn, arithmetic included), and the indexer appends it to its page as `[Figure: ...]`. **Local OCR was tested and rejected**: RapidOCR read the typed boxes but turned the handwritten problems list into "PoorCommunlcafton nochermetru". The 2026-09-16 run used six Sonnet agents, about 10 minutes, no API spend, spot-checked cell for cell on the densest table. The brief is `reference/hormozi-figure-brief.md`, so a new book is read the same way. `hormozi_search.py --page 62 --book LC` renders a page to PNG when the layout of a diagram matters, not just its labels. `scripts/hormozi_search.py` runs keyword (BM25) and meaning search side by side, fuses them, and reranks with `rerank-2.5`. Four questions take about 5 seconds. `--chapter "guarantees"` prints a whole chapter, `--toc` lists them all. Logic is in `scripts/hormozi_lib.py` behind 51 tests that need no network. The rebuild fingerprint includes a hash of that file, so any change to cleaning or chunking rebuilds every book on the next index run.
+
+```bash
+uv run --no-project --system-certs --with pymupdf --with numpy --with voyageai --with python-dotenv --with truststore python scripts/hormozi_search.py "question one" "question two" --k 6
+uv run --no-project --system-certs --with pymupdf --with numpy --with voyageai --with python-dotenv --with truststore python scripts/hormozi_index.py
+```
+
+Offer PDFs are built from **`reference/offer-template.html`** (Boschly light print, General Sans, two A4 pages laid out in the Grand Slam Offer order) into `outputs/offers/<client-slug>/`, then rendered with `scripts/html_to_pdf.py`. Its fictional client is "Ridgeback Plumbing", so a match for that name in a finished file means a block was missed.
+
+Five things to keep: **the client sees the offer, never the book**, so no Hormozi name and no citations go in a client PDF (citations stay in the chat). **Search finds the passage, and `--chapter` reads the framework**, because most of his frameworks run for pages and a 380-word passage is a fragment. **Chapters come from the bookmark title, never its depth**: $100M Leads nests sections below chapters, and the Lost Chapters PDF carries 39 auto-generated `_abc123` bookmarks that get filtered out. **Workspace evidence beats the book** where they disagree, for example firm-specific demos closing 2 of 2 against 0 of 7 for generic pitches. And **`Hormozi/` is gitignored**: the chunk files are the books' full text and this repo pushes to GitHub, so none of it may go into `shares/`, `module-installs/` or an artifact.
+
+`uv run --with playwright` now resolves a Playwright release that needs Chromium headless shell build **1243**. It was installed on 2026-09-16. Next time `html_to_pdf.py` or `invoice.py` fails with "Executable doesn't exist", run `uv run --no-project --system-certs --with playwright python -m playwright install chromium-headless-shell`.
 
 ---
 

@@ -105,7 +105,7 @@ These are how you know your AIOS is working:
 | `outputs/crm/`     | The outreach CRM data layer: `crm.csv` (all contacts), `activity-log.csv` (every touch), `goals.json` (weekly targets). Viewed live in the CRM dashboard — see "Outreach CRM" below. |
 | `outputs/linkedin/` | LinkedIn content-ops data: `ideas.csv` (post ideas + weekly plan), `stats.csv` (impressions/followers log), `analytics/` (drop LinkedIn .xlsx exports here to import). Viewed in the CRM dashboard's LinkedIn tab. |
 | `shares/`          | Packaged systems for sharing. Created by `/share`, ready to hand off.                  |
-| `Hormozi/`         | Alex Hormozi's books as PDFs plus their search index (`.index/`). Read by `/hormozi` and `/alex`. **Gitignored**: copyrighted text, never shared or packaged. |
+| `Hormozi/`         | Alex Hormozi's books as PDFs plus their search index (`.index/`). Read by `/alex` and `/hormozi`. **Gitignored**: copyrighted text, never shared or packaged. |
 | `claude-vault/`    | **The module library.** Every system Boschly can build, packaged as a drag-and-drop folder that installs itself (INSTALL.md + `_connectors/` + `_patterns/`). Start with [claude-vault/README.md](claude-vault/README.md) for the format, [CATALOGUE.md](claude-vault/CATALOGUE.md) for what exists, [BUILD-PLAN.md](claude-vault/BUILD-PLAN.md) for the order. Planned 2026-07-27, Wave 0 not yet started. |
 
 ---
@@ -277,9 +277,11 @@ Loads the strategy layer and the context window, then runs positioning → packa
 
 Example: `/develop the speed-to-lead voice agent`
 
-### /hormozi [question or job] (same as /alex)
+### /alex [question or job] (same as /hormozi)
 
 **Purpose:** Ask Alex Hormozi's four books anything, or build with them: an offer PDF for a client, a money model, a lead magnet, a critique of an existing offer.
+
+**It is a skill, not a command file**: the instructions live in `.claude/skills/alex/SKILL.md`, and `.claude/skills/hormozi/SKILL.md` only points there. It started in `.claude/commands/` and never appeared in the VS Code slash menu, which lists skills; moved the same day.
 
 Local RAG, added 2026-09-16. The PDFs sit in `Hormozi/` ($100M Offers, $100M Leads, $100M Money Models, $100M Lost Chapters). **846 of 907 PDF pages are indexed, about 220k words in 717 passages.** The other 61 are 36 blank pages (or a lone QR code), 8 legal pages, 6 contents pages, 6 title pages and 5 section-heading pages whose heading every passage already carries. `hormozi_index.py --audit` lists each skipped page with its reason and confirms the saved index matches. `scripts/hormozi_index.py` cleans each page, labels it with its section and chapter from the PDF bookmarks, cuts ~380-word passages that never cross a chapter, and embeds them with Voyage `voyage-3-large` into `Hormozi/.index/`. Unchanged books are skipped by sha256, so dropping in a fifth book and re-running costs only that book. A full build was about five US cents.
 

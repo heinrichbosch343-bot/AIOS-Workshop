@@ -1,6 +1,12 @@
-# Hormozi
+---
+name: alex
+description: Ask Alex Hormozi's books ($100M Offers, Leads, Money Models, Lost Chapters) anything, or build with them, such as an offer PDF for a client, a money model or a lead magnet, with every idea cited to a book and page. Use when Heinrich types /alex or /hormozi, or asks what Hormozi says about something.
+argument-hint: "[question, or a job like: offer PDF for <client>]"
+---
 
-> Ask Alex Hormozi's books anything, or have them build something with you. Searches the local library ($100M Offers, $100M Leads, $100M Money Models, $100M Lost Chapters), reads the chapters that matter, and applies them to the job in front of us, with every idea traced to a book and a page. `/alex` does the same thing.
+# Alex
+
+> Ask Alex Hormozi's books anything, or have them build something with you. Searches the local library ($100M Offers, $100M Leads, $100M Money Models, $100M Lost Chapters), reads the chapters that matter, and applies them to the job in front of us, with every idea traced to a book and a page. `/hormozi` does the same thing.
 
 ## Variables
 

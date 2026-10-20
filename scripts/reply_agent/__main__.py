@@ -219,7 +219,21 @@ def cmd_railway_setup(cfg: config_mod.Config, url: str, key: str) -> None:
     print(f"Sent {result['leads']} lead address(es), {result['mailboxes']} mailbox(es), "
          f"{result['suppressed_added']} new do-not-write address(es). "
          f"Replies-are-waiting emails: {'on' if result['notify'] else 'off (set notify_to in the local config)'}.")
+    remember_hosted(url, key)
     print(f"Check it worked: {url.rstrip('/')}/ready")
+
+
+def remember_hosted(url: str, key: str, path=None) -> None:
+    """Save where the hosted copy lives (and its key) beside the private config, so the Replies and Systems pages in
+    Twenty can read it. Gitignored, like the private config."""
+    path = path or config_mod.HOSTED_PATH
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(json.dumps({"url": url.rstrip("/"), "key": key}, indent=2) + "\n", encoding="utf-8")
+    os.replace(tmp, path)
+    try:
+        os.chmod(path, 0o600)
+    except OSError:
+        pass
 
 
 def main(argv: list[str] | None = None) -> None:

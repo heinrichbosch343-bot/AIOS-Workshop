@@ -31,7 +31,7 @@ from .rules import Known
 from .store import Store
 from .textnorm import strip_controls
 
-BUILD = "reply-agent-web-1 (2026-10-20, first hosted build)"
+BUILD = "reply-agent-web-2 (2026-10-20, /summary for the Replies page in Twenty)"
 
 
 def _clean_env(name: str) -> str:
@@ -80,16 +80,19 @@ def _llm() -> LLM:
     return AnthropicApi(os.environ["ANTHROPIC_API_KEY"])
 
 
+def _interval_minutes() -> int:
+    try:
+        return max(1, int(_clean_env("REPLY_AGENT_INTERVAL_MINUTES") or "5"))
+    except ValueError:
+        return 5
+
+
 async def _background_loop() -> None:
     enabled = _clean_env("REPLY_AGENT_ENABLED") == "1"
     print(f"[reply-agent] background pass {'enabled' if enabled else 'disabled (set REPLY_AGENT_ENABLED=1)'}", flush=True)
     if not enabled:
         return
-    minutes = 5
-    try:
-        minutes = max(1, int(_clean_env("REPLY_AGENT_INTERVAL_MINUTES") or "5"))
-    except ValueError:
-        pass
+    minutes = _interval_minutes()
     live = _clean_env("REPLY_AGENT_LIVE") == "1"
     key = _key()
     link = f"{public_base_url()}/replies?key={key}" if key else ""
@@ -136,6 +139,17 @@ def ready():
         "live": _clean_env("REPLY_AGENT_LIVE") == "1",
         "last_pass": {k: status[k] for k in ("last_pass_at", "last_ok_at", "ok", "error") if k in status} or None,
     }
+
+
+@app.get("/summary")
+def summary(request: Request):
+    """Counts, the newest replies and whether the agent is alive, for the Replies page inside Twenty. Guarded: it carries
+    what people wrote."""
+    if not _authorised(request):
+        return _denied()
+    data = _hosted().summary(enabled=_clean_env("REPLY_AGENT_ENABLED") == "1", live=_clean_env("REPLY_AGENT_LIVE") == "1",
+                             interval_minutes=_interval_minutes())
+    return {"build": BUILD, **data}
 
 
 @app.post("/setup")

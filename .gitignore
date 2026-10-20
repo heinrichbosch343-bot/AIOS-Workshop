@@ -56,6 +56,75 @@ node_modules/
 # Claude Code personal settings (permission grants) - never commit
 .claude/settings.local.json
 
+# Vendored upstream clones: keep the source, not the docs-site assets.
+# The clone stays whole on disk (the tarball re-extract is the update path);
+# these two are marketing images and build artifacts, ~12MB, and nothing reads them.
+reference/remocn/public/
+reference/remocn/registry-artifacts/
+
+# --- Lead-enrichment page caches (regenerable, free to re-warm, large) ---
+outputs/leads/_*cache*.json
+outputs/leads/.*cache*.json
+
+# Meeting recordings: client conversations and audio never go into git.
+# Transcripts stay local too; they contain what clients said in confidence.
+outputs/voice/meetings/
+
 # Hormozi library: the books are copyrighted and the index (Hormozi/.index/) is
 # their full text in passages. Both stay on this machine; this repo pushes to GitHub.
 Hormozi/
+
+# The Atlas funnel material is licensed to Heinrich personally and its own footer
+# forbids sharing it. Same rule as the books: the PDFs stay on this machine, and
+# the passages built from them live in the gitignored Hormozi/.index/.
+Bid-Desk/sources/
+
+# Client projects: each one has its own git repo and its own accounts, and this
+# repo is public. Nothing under Projects/ may be pushed from here.
+Projects/
+
+# Motion Reel Kit: it ships with no licence, so it is not ours to republish, and this repo
+# is public. Films made with it live in videos/ (the kit's engine is copied into every film,
+# plus audio stems and review frames); finished MP4s are copied to outputs/videos/.
+/motion-reel-kit/
+/videos/
+
+# Daily outreach desk (9 Oct 2026): the queue, the research behind it and the sent-log are real people's
+# names, emails and LinkedIn links, and this repo is public. Only the words (copy.json), README and
+# the sample page stay trackable.
+outputs/outreach/queue.csv
+outputs/outreach/daily-state.csv
+outputs/outreach/daily-log.csv
+outputs/outreach/research/
+outputs/outreach/from-connect.csv
+outputs/outreach/entrance.json
+outputs/outreach/contact-list.csv
+# which desk person is which Twenty record (crm_sync.py), its run lock, and the exact first messages as sent
+outputs/outreach/crm-sync.json*
+outputs/outreach/sent-messages.jsonl
+# Reply agent (16 Oct 2026): the database holds what real prospects wrote back
+outputs/outreach/replies/
+# its private settings: the tracking mailbox, campaign mailboxes, warmup tags and lead list path (the public repo must not carry them)
+outputs/outreach/reply-agent.local.json
+# where the hosted (Railway) copy lives and the key that opens its pages
+outputs/outreach/reply-agent.hosted.json
+outputs/outreach/reply-agent.hosted.json.tmp
+outputs/linkedin/taplio-stats.json
+outputs/linkedin/taplio-stats.tmp
+outputs/leads/engaged-and-warm-offers-*.csv
+
+# closeout owner list (real people, public repo)
+outputs/leads/us-closeout-*.csv
+outputs/leads/_closeout-research/
+outputs/leads/connect-150-*.csv
+outputs/leads/sa-closeout-*.csv
+outputs/leads/uk-closeout-*.csv
+outputs/leads/au-closeout-*.csv
+outputs/leads/_closeout-maps/
+outputs/leads/uk-companies-house-*.csv
+
+# bought and exported email lists (real people, public repo)
+context/email/*.csv
+
+# Creative Goose's clients: brand profiles read from their Canva (other people's clients, public repo)
+outputs/creative-goose/

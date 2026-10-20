@@ -208,6 +208,23 @@ class Store:
         wanted = base_address(sender)
         return sum(1 for r in rows if base_address(r["from_addr"]) == wanted)
 
+    def handled_by_category_since(self, since_iso: str) -> dict:
+        """Mail handled since the given time, per category (our own handled_at clock, not the sender's Date header)."""
+        rows = self._conn.execute("SELECT category, COUNT(*) n FROM mails WHERE handled_at >= ? GROUP BY category", (since_iso,))
+        return {r["category"]: int(r["n"]) for r in rows}
+
+    def recent_mails(self, categories: tuple[str, ...], limit: int) -> list[sqlite3.Row]:
+        """The newest handled mails in these categories, each with the latest draft written for it (if any)."""
+        marks = ",".join("?" for _ in categories)
+        return list(self._conn.execute(
+            f"SELECT m.handled_at, m.from_addr, m.from_name, m.mailbox, m.subject, m.body, m.category, "
+            f"d.status AS draft_status, d.body AS draft_body, d.sent_at "
+            f"FROM mails m LEFT JOIN drafts d ON d.id = (SELECT MAX(id) FROM drafts WHERE message_id = m.message_id) "
+            f"WHERE m.category IN ({marks}) ORDER BY m.handled_at DESC, m.rowid DESC LIMIT ?", (*categories, limit)))
+
+    def draft_status_counts(self) -> dict:
+        return {r["status"]: int(r["n"]) for r in self._conn.execute("SELECT status, COUNT(*) n FROM drafts GROUP BY status")}
+
     def counts_by_category(self, since_iso: str, until_iso: str | None = None) -> dict:
         sql = "SELECT category, COUNT(*) n FROM mails WHERE received_at >= ?"
         args: list = [since_iso]

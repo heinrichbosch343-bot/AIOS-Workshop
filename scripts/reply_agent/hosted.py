@@ -30,13 +30,18 @@ from .agent import Agent
 from .config import Config
 from .llm import LLM
 from .mailbox import FilingSender, ImapSource, SmtpSender
+from .models import MODEL_CATEGORIES
 from .store import Store
+from .textnorm import one_line, strip_controls
 
 FOLDER_NAME = "reply-agent"
 REQUIRED = ("shared.json", "local.json", "leads.csv", "secret.json")
 MAX_LEADS = 50_000
 MAX_SUPPRESSED = 20_000
 NOTIFY_EVERY = timedelta(minutes=30)
+# A person writing back. Bounces, auto-replies, warmup, our own mail and strangers are "filed away", not replies.
+REPLY_CATEGORIES = MODEL_CATEGORIES + ("unsubscribe", "complaint")
+SNIPPET = 600
 _LOCK = threading.Lock()  # notify.json is read and rewritten whole
 
 
@@ -71,6 +76,15 @@ def _write_atomic(path: Path, data: bytes, private: bool = False) -> None:
 
 def _json_bytes(data) -> bytes:
     return json.dumps(data, indent=2, ensure_ascii=True).encode("ascii")
+
+
+def _sum(counts: dict) -> int:
+    return sum(v for k, v in counts.items() if k in REPLY_CATEGORIES)
+
+
+def _clip(value, limit: int, one_line_only: bool = False) -> str:
+    text = (one_line if one_line_only else strip_controls)(str(value or ""))
+    return text if len(text) <= limit else text[: limit - 3].rstrip() + "..."
 
 
 def _is_address(value) -> bool:
@@ -225,6 +239,60 @@ class Hosted:
             return self._read("status.json", {})
         except (OSError, ValueError):
             return {}
+
+    # --- what the Replies page inside Twenty shows ------------------------------------------------
+    def summary(self, *, enabled: bool, live: bool, interval_minutes: int = 5, limit: int = 20) -> dict:
+        """Counts, the newest replies with what we drafted, and whether the agent is alive. It carries what people wrote,
+        so the web layer only hands it out behind the key."""
+        now = self.clock()
+        status = self.status()
+        out = {"enabled": enabled, "live": live, "interval_minutes": interval_minutes,
+               "last_pass_at": status.get("last_pass_at"), "last_ok_at": status.get("last_ok_at"),
+               "online": False, "why_not": "", "replies": {"day": 0, "week": 0, "month": 0, "all": 0},
+               "by_category_month": {}, "filed_away_month": 0,
+               "drafts": {"waiting": 0, "approved": 0, "sent": 0, "skipped": 0, "failed": 0, "checking": 0},
+               "needs_you": 0, "recent": []}
+        blockers = self.blockers()
+        if blockers:
+            out["why_not"] = blockers[0]
+            return out
+        out["online"], out["why_not"] = self._online(enabled, status, interval_minutes, now)
+        store = self.store()
+        try:
+            def since(delta: timedelta) -> dict:
+                return store.handled_by_category_since(_iso(now - delta))
+            month = since(timedelta(days=30))
+            out["replies"] = {"day": _sum(since(timedelta(days=1))), "week": _sum(since(timedelta(days=7))),
+                              "month": _sum(month), "all": _sum(store.handled_by_category_since(""))}
+            out["by_category_month"] = {k: v for k, v in month.items() if k in REPLY_CATEGORIES}
+            out["filed_away_month"] = sum(v for k, v in month.items() if k not in REPLY_CATEGORIES)
+            drafts = store.draft_status_counts()
+            out["drafts"] = {"waiting": drafts.get("pending", 0) + drafts.get("held", 0), "approved": drafts.get("approved", 0),
+                             "sent": drafts.get("sent", 0), "skipped": drafts.get("skipped", 0),
+                             "failed": drafts.get("failed", 0), "checking": drafts.get("sending", 0)}
+            out["needs_you"] = len(store.open_attention())
+            out["recent"] = [{"at": r["handled_at"], "from_name": _clip(r["from_name"], 80, True),
+                              "from_addr": _clip(r["from_addr"], 254, True), "mailbox": _clip(r["mailbox"], 254, True),
+                              "subject": _clip(r["subject"], 200, True), "category": r["category"],
+                              "their_words": _clip(r["body"], SNIPPET), "draft_status": r["draft_status"] or "",
+                              "draft": _clip(r["draft_body"], SNIPPET), "sent_at": r["sent_at"] or ""}
+                             for r in store.recent_mails(REPLY_CATEGORIES, limit)]
+        finally:
+            store.close()
+        return out
+
+    @staticmethod
+    def _online(enabled: bool, status: dict, interval_minutes: int, now: datetime) -> tuple[bool, str]:
+        if not enabled:
+            return False, "The background check is switched off (REPLY_AGENT_ENABLED is not 1 on Railway)."
+        if status.get("ok") is False:
+            return False, f"The last check of the inbox failed: {status.get('error') or 'no reason given'}"
+        if not status.get("last_ok_at"):
+            return False, "It has not finished a check of the inbox yet."
+        age = now - datetime.fromisoformat(status["last_ok_at"])
+        if age > timedelta(minutes=max(15, 3 * interval_minutes)):
+            return False, f"Its last good check of the inbox was {int(age.total_seconds() // 60)} minutes ago."
+        return True, ""
 
     @staticmethod
     def waiting(store: Store) -> dict[str, list[int]]:

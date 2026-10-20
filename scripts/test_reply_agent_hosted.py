@@ -287,6 +287,79 @@ def test_the_same_unresolved_item_never_notifies_twice_even_once_the_throttle_wi
     assert r2["notified"] is False and len(FakeSmtp.sent) == 1
 
 
+# --- summary (what the Replies page inside Twenty reads) ------------------------------------------------------------
+
+WARMUP_MAIL = raw("hello there cedar-upstairs", **{"From": "Warm <warm@else.com>", "To": "bosch@boschly.com",
+                                                    "Message-ID": "<warm1@x>", "Subject": "Quick catch-up cedar-upstairs"})
+AUTO_MAIL = raw("I am out of the office until Monday.", **{"From": "Sam Lee <sam@acme.com>", "To": "bosch@boschly.com",
+                                                          "Message-ID": "<ooo1@x>", "Auto-Submitted": "auto-replied",
+                                                          "Subject": "Automatic reply: quick hello"})
+
+
+def test_summary_counts_a_real_reply_and_shows_what_we_drafted(tmp_path, monkeypatch):
+    hosted = Hosted(tmp_path / "ra")
+    hosted.apply_setup(GOOD_PAYLOAD)
+    _wire_mail(monkeypatch, {"1": Msg(sam_mail())})
+    hosted.run_pass(routed_llm(), send=False)
+    s = hosted.summary(enabled=True, live=False)
+    assert s["replies"] == {"day": 1, "week": 1, "month": 1, "all": 1}
+    assert s["drafts"]["waiting"] == 1 and s["drafts"]["sent"] == 0
+    row = s["recent"][0]
+    assert row["from_name"] == "Sam Lee" and row["from_addr"] == "sam@acme.com" and row["category"] == "interested"
+    assert row["draft_status"] == "pending" and row["draft"].startswith("Hi Sam")
+    assert "5 bids a month" in row["their_words"]
+
+
+def test_summary_leaves_warmup_and_auto_replies_out_of_the_reply_count(tmp_path, monkeypatch):
+    hosted = Hosted(tmp_path / "ra")
+    hosted.apply_setup(GOOD_PAYLOAD)
+    _wire_mail(monkeypatch, {"1": Msg(WARMUP_MAIL), "2": Msg(AUTO_MAIL)})
+    hosted.run_pass(routed_llm(), send=False)
+    s = hosted.summary(enabled=True, live=False)
+    assert s["replies"]["all"] == 0 and s["recent"] == []
+    assert s["filed_away_month"] == 2
+
+
+def test_summary_is_online_only_after_a_recent_good_pass_with_the_loop_on(tmp_path, monkeypatch):
+    from datetime import timedelta
+    clock_at = [hosted_mod._now()]
+    hosted = Hosted(tmp_path / "ra", clock=lambda: clock_at[0])
+    hosted.apply_setup(GOOD_PAYLOAD)
+    before = hosted.summary(enabled=True, live=False)
+    assert before["online"] is False and "not finished" in before["why_not"]
+
+    _wire_mail(monkeypatch, {"1": Msg(sam_mail())})
+    hosted.run_pass(routed_llm(), send=False)
+    assert hosted.summary(enabled=True, live=False)["online"] is True
+    off = hosted.summary(enabled=False, live=False)
+    assert off["online"] is False and "switched off" in off["why_not"]
+
+    clock_at[0] += timedelta(hours=1)
+    stale = hosted.summary(enabled=True, live=False, interval_minutes=5)
+    assert stale["online"] is False and "minutes ago" in stale["why_not"]
+
+
+def test_summary_goes_red_when_the_last_pass_failed(tmp_path, monkeypatch):
+    hosted = Hosted(tmp_path / "ra")
+    hosted.apply_setup(GOOD_PAYLOAD)
+    _wire_mail(monkeypatch, {"1": Msg(sam_mail())})
+    hosted.run_pass(routed_llm(), send=False)
+
+    def boom(*a, **kw):
+        raise RuntimeError("the server is down")
+    monkeypatch.setattr(imaplib, "IMAP4_SSL", boom)
+    with pytest.raises(RuntimeError):
+        hosted.run_pass(routed_llm(), send=False)
+    s = hosted.summary(enabled=True, live=False)
+    assert s["online"] is False and "the server is down" in s["why_not"]
+
+
+def test_summary_before_setup_says_why_and_counts_nothing(tmp_path):
+    s = Hosted(tmp_path / "ra").summary(enabled=True, live=False)
+    assert s["online"] is False and "railway-setup" in s["why_not"]
+    assert s["replies"]["all"] == 0 and s["recent"] == []
+
+
 # --- web.py ----------------------------------------------------------------------------------------------------------
 
 @pytest.fixture
@@ -306,6 +379,20 @@ def test_health_and_ready_need_no_key(client):
     assert client.get("/health").json() == {"status": "ok"}
     body = client.get("/ready").json()
     assert body["ready"] is False and "railway-setup" in body["blockers"][0]
+
+
+def test_summary_route_needs_the_key_and_reports_the_loop_switch(client, monkeypatch):
+    assert client.get("/summary").status_code == 403
+    assert client.get("/summary?key=wrong").status_code == 403
+    client.post("/setup?key=testkey123", json=GOOD_PAYLOAD)
+    _wire_mail(monkeypatch, {"1": Msg(sam_mail())})
+    from reply_agent.hosted import Hosted as H
+    H(__import__("os").environ["REPLY_AGENT_DIR"]).run_pass(routed_llm(), send=False)
+    body = client.get("/summary?key=testkey123").json()
+    assert body["replies"]["all"] == 1 and body["recent"][0]["from_addr"] == "sam@acme.com"
+    assert body["enabled"] is False and body["online"] is False  # the fixture leaves REPLY_AGENT_ENABLED unset
+    monkeypatch.setenv("REPLY_AGENT_ENABLED", "1")
+    assert client.get("/summary?key=testkey123").json()["online"] is True
 
 
 @pytest.mark.parametrize("path", ["/replies", "/setup"])

@@ -15,6 +15,7 @@ from .models import MODES
 REPO = Path(__file__).resolve().parents[2]
 CONFIG_PATH = REPO / "outputs" / "outreach" / "reply-agent.json"
 LOCAL_PATH = CONFIG_PATH.with_name("reply-agent.local.json")
+HOSTED_PATH = CONFIG_PATH.with_name("reply-agent.hosted.json")  # where the Railway copy lives + its key; gitignored
 DB_PATH = REPO / "outputs" / "outreach" / "replies" / "replies.db"
 
 BOOKING_LINK = "https://cal.com/heinrich-bosch-yrvh1y/meets?duration=30"

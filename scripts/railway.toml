@@ -2,6 +2,10 @@
 builder = "NIXPACKS"
 
 [deploy]
-startCommand = "uvicorn reply_agent.web:app --host 0.0.0.0 --port $PORT"
+# `python3 -m uvicorn`, not bare `uvicorn`: pip's own console scripts land
+# somewhere that isn't on PATH at container runtime (confirmed 20 Oct 2026:
+# "uvicorn: command not found"), but `-m` resolves through the same
+# interpreter's sys.path regardless of where pip put the console script.
+startCommand = "python3 -m uvicorn reply_agent.web:app --host 0.0.0.0 --port $PORT"
 restartPolicyType = "ON_FAILURE"
 restartPolicyMaxRetries = 3

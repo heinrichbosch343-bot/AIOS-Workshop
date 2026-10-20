@@ -3,4 +3,8 @@
 # the reply agent's own small set of pure-Python packages, pinned to match apps/boschai-backend where both use
 # the same library, for one Anthropic SDK version to reason about across the two services.
 [phases.install]
-cmds = ["pip install fastapi==0.115.5 'uvicorn[standard]'==0.32.1 python-multipart==0.0.17 anthropic==0.40.0 python-dotenv==1.0.1 truststore"]
+# `pip` has no executable on PATH on the bare python3 nix package this image
+# resolves to (confirmed on Railway's Metal builder, 20 Oct 2026: "pip: command
+# not found", exit 127); `python3 -m pip` works because pip ships as a module
+# even when its console script doesn't get linked onto PATH.
+cmds = ["python3 -m pip install fastapi==0.115.5 'uvicorn[standard]'==0.32.1 python-multipart==0.0.17 anthropic==0.40.0 python-dotenv==1.0.1 truststore"]

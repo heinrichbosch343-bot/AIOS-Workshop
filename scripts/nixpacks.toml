@@ -14,4 +14,4 @@ nixPkgs = ["python3", "python3Packages.pip", "gcc"]
 # store path from python3, so `python3 -m pip` can't see it (its sys.path
 # comes from python3's own prefix). The `pip` console script nix-env links
 # into the shared profile is wrapped with the right path baked in.
-cmds = ["pip install --no-cache-dir fastapi==0.115.5 'uvicorn[standard]'==0.32.1 python-multipart==0.0.17 anthropic==0.40.0 python-dotenv==1.0.1 truststore"]
+cmds = ["pip install --no-cache-dir --break-system-packages fastapi==0.115.5 'uvicorn[standard]'==0.32.1 python-multipart==0.0.17 anthropic==0.40.0 python-dotenv==1.0.1 truststore"]

@@ -1,0 +1,6 @@
+# Overrides Nixpacks' auto-detected install, which would otherwise run `pip install -r scripts/requirements.txt`
+# (Playwright and its browser download, meant for the dashboards, not for this worker). This service needs only
+# the reply agent's own small set of pure-Python packages, pinned to match apps/boschai-backend where both use
+# the same library, for one Anthropic SDK version to reason about across the two services.
+[phases.install]
+cmds = ["pip install fastapi==0.115.5 'uvicorn[standard]'==0.32.1 python-multipart==0.0.17 anthropic==0.40.0 python-dotenv==1.0.1 truststore"]

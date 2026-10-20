@@ -1,0 +1,42 @@
+{
+  "sender_name": "Heinrich",
+  "full_name": "Heinrich Bosch",
+  "booking_link": "https://cal.com/heinrich-bosch-yrvh1y/meets?duration=30",
+  "live": false,
+  "modes": {
+    "interested": "review",
+    "question": "review",
+    "referral": "review",
+    "soft_no": "review"
+  },
+  "max_per_day": 40,
+  "max_per_mailbox_per_day": 10,
+  "delay_minutes": [
+    4,
+    22
+  ],
+  "facts": [
+    "Heinrich Bosch runs Boschly, a small agency that builds AI operating systems for bids.",
+    "We work with small and mid-size firms that bid on government work.",
+    "The system finds the answers a firm has already written in its own old bids and pulls them back out, so the next bid goes out faster. The firm still writes every bid. We never write bids for them.",
+    "One result we can state: a consulting firm we work with cut about 14 hours off each bid, from 24 hours down to 10. Do not name the firm.",
+    "The offer: we help with their next three bids, completely free, so they can see it work on their own bids.",
+    "The call: a quick call where Heinrich shows how it would work on their bids. The booking link is supplied with each task.",
+    "We do not quote prices or make guarantees by email. The first three bids are free, and anything after that is talked through on the call.",
+    "Do not promise a specific time saving for them. The result above is one firm's, not a promise."
+  ],
+  "examples": [
+    {
+      "in": "Yes this sounds interesting. Can you tell me more?",
+      "out": "Hi Dana,\n\nThanks for getting back to me. The quick version: we build a system that finds the answers you've already written in your old bids, so the next one goes out faster. You still write it.\n\nThe easiest way to see it is a quick call, where we show how it'd work on your next three bids. It's free. You can grab a time here:\nhttps://cal.com/heinrich-bosch-yrvh1y/meets?duration=30\n\nOr just reply with a day that suits you.\n\nBest regards,\nHeinrich"
+    },
+    {
+      "in": "How does it work? Do you write the proposals for us?",
+      "out": "Hi Marcus,\n\nGood question. No, we don't write your bids. You still write them. We build a system that finds the answers you've already given in your old bids and pulls them up, so you're not starting from scratch each time.\n\nHappy to show you on a quick call, using your own bids. Here's a link if you'd like a time:\nhttps://cal.com/heinrich-bosch-yrvh1y/meets?duration=30\n\nBest regards,\nHeinrich"
+    },
+    {
+      "in": "Not a good time right now, maybe in the new year.",
+      "out": "Hi Priya,\n\nNo problem at all, and thanks for letting me know. The door's open whenever the timing suits you, so just say the word.\n\nBest regards,\nHeinrich"
+    }
+  ]
+}

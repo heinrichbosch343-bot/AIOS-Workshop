@@ -460,3 +460,139 @@ def test_resolve_on_an_unknown_attention_id_says_so_rather_than_erroring(client)
     client.post("/setup?key=testkey123", json=GOOD_PAYLOAD)
     r = client.post("/attention/999/resolve?key=testkey123", follow_redirects=False)
     assert r.status_code == 303 and "No%20open%20item" in r.headers["location"]
+
+
+# --- the queue and the JSON actions: everything the review page does, for the Replies page inside Twenty ---------------
+
+def _first_draft_id(hosted):
+    store = hosted.store()
+    try:
+        return store.drafts("pending")[0]["id"]
+    finally:
+        store.close()
+
+
+def test_summary_queue_lists_what_waits_for_a_person_with_the_numbers_the_actions_need(tmp_path, monkeypatch):
+    hosted = Hosted(tmp_path / "ra")
+    hosted.apply_setup(GOOD_PAYLOAD)
+    assert hosted.summary(enabled=True, live=False)["queue"] == []
+    _wire_mail(monkeypatch, {"1": Msg(sam_mail())})
+    hosted.run_pass(routed_llm(), send=False)
+    (item,) = hosted.summary(enabled=True, live=False)["queue"]
+    assert item["kind"] == "draft" and item["id"] == _first_draft_id(hosted)
+    assert item["from_name"] == "Sam Lee" and item["from_addr"] == "sam@acme.com" and item["category"] == "interested"
+    assert item["draft"].startswith("Hi Sam,") and BOOKING_LINK in item["draft"] and "5 bids a month" in item["their_words"]
+    assert item["mailbox"] == "bosch@boschly.com" and item["verified"] is True
+
+
+def test_a_draft_in_the_queue_is_never_cut_short_because_it_is_edited_and_approved_from_there(tmp_path, monkeypatch):
+    hosted = Hosted(tmp_path / "ra")
+    hosted.apply_setup(GOOD_PAYLOAD)
+    _wire_mail(monkeypatch, {"1": Msg(sam_mail())})
+    hosted.run_pass(routed_llm(), send=False)
+    long_body = "Hi Sam,\n\n" + ("A sentence that goes on. " * 70) + "\n\nHeinrich"
+    store = hosted.store()
+    try:
+        store.update_draft(_first_draft_id(hosted), body=long_body)
+    finally:
+        store.close()
+    (item,) = hosted.summary(enabled=True, live=False)["queue"]
+    assert item["draft"] == long_body and len(long_body) > 1500
+
+
+def test_the_queue_also_holds_doubtful_sends_failed_sends_and_open_attention_items(tmp_path, monkeypatch):
+    hosted = Hosted(tmp_path / "ra")
+    hosted.apply_setup(GOOD_PAYLOAD)
+    _wire_mail(monkeypatch, {"1": Msg(sam_mail())})
+    hosted.run_pass(routed_llm(), send=False)
+    draft_id = _first_draft_id(hosted)
+    store = hosted.store()
+    try:
+        store.update_draft(draft_id, status="failed", note="The server refused it")
+        message_id = store.get_draft(draft_id)["their_id"]
+        store.add_attention(message_id, "complaint", "Needs a person")
+    finally:
+        store.close()
+    kinds = {i["kind"]: i for i in hosted.summary(enabled=True, live=False)["queue"]}
+    assert set(kinds) == {"failed", "attention"}
+    assert kinds["failed"]["id"] == draft_id and kinds["failed"]["note"] == "The server refused it"
+    assert kinds["attention"]["attention_kind"] == "complaint" and kinds["attention"]["note"] == "Needs a person"
+    store = hosted.store()
+    try:
+        store.update_draft(draft_id, status="sending")
+    finally:
+        store.close()
+    assert {i["kind"] for i in hosted.summary(enabled=True, live=False)["queue"]} == {"doubtful", "attention"}
+
+
+def _act(client, **payload):
+    return client.post("/api/act?key=testkey123", json=payload)
+
+
+def _queue_one(client, monkeypatch):
+    import os
+    client.post("/setup?key=testkey123", json=GOOD_PAYLOAD)
+    _wire_mail(monkeypatch, {"1": Msg(sam_mail())})
+    Hosted(os.environ["REPLY_AGENT_DIR"]).run_pass(routed_llm(), send=False)
+    return client.get("/summary?key=testkey123").json()["queue"][0]
+
+
+def test_the_json_action_route_refuses_a_missing_or_wrong_key(client):
+    assert client.post("/api/act", json={"action": "skip", "id": 1}).status_code == 403
+    assert client.post("/api/act?key=wrong", json={"action": "skip", "id": 1}).status_code == 403
+
+
+def test_the_json_action_route_approves_with_the_edited_words_and_refuses_a_bad_edit_with_the_reason(client, monkeypatch):
+    item = _queue_one(client, monkeypatch)
+    bad = _act(client, action="approve", id=item["id"], body="too short").json()
+    assert bad["ok"] is False and "Could not approve" in bad["message"]
+    assert client.get("/summary?key=testkey123").json()["queue"][0]["id"] == item["id"]          # still waiting
+    good = _act(client, action="approve", id=item["id"], body=GOOD_REPLY).json()
+    assert good["ok"] is True and "approved" in good["message"]
+    assert client.get("/summary?key=testkey123").json()["queue"] == []
+    assert _act(client, action="approve", id=item["id"], body=GOOD_REPLY).json()["ok"] is False   # a second click changes nothing
+
+
+def test_the_json_action_route_skips_retries_settles_and_resolves(client, monkeypatch):
+    import os
+    item = _queue_one(client, monkeypatch)
+    assert _act(client, action="skip", id=item["id"]).json() == {"ok": True, "message": f"Draft {item['id']} skipped."}
+    hosted = Hosted(os.environ["REPLY_AGENT_DIR"])
+    store = hosted.store()
+    try:
+        store.update_draft(item["id"], status="failed", note="refused")
+        message_id = store.get_draft(item["id"])["their_id"]
+        store.add_attention(message_id, "complaint", "look")
+        attention_id = store.open_attention()[0]["id"]
+    finally:
+        store.close()
+    assert _act(client, action="retry", id=item["id"]).json()["ok"] is True
+    store = hosted.store()
+    try:
+        store.update_draft(item["id"], status="sending")
+    finally:
+        store.close()
+    assert _act(client, action="settle", id=item["id"], sent=False).json()["ok"] is True
+    assert [i["kind"] for i in client.get("/summary?key=testkey123").json()["queue"]] == ["failed", "attention"]   # it did not arrive: retryable
+    store = hosted.store()
+    try:
+        store.update_draft(item["id"], status="sending")
+    finally:
+        store.close()
+    assert _act(client, action="settle", id=item["id"], sent=True).json()["ok"] is True
+    assert _act(client, action="resolve", id=attention_id).json() == {"ok": True, "message": "Marked reviewed."}
+    assert _act(client, action="resolve", id=attention_id).json()["ok"] is False                  # already reviewed
+    assert client.get("/summary?key=testkey123").json()["queue"] == []
+
+
+@pytest.mark.parametrize("payload", [{"action": "delete", "id": 1}, {"action": "skip"}, {"action": "skip", "id": "1"},
+                                     {"action": "skip", "id": True}, {"action": "skip", "id": -3}, {"action": "approve", "id": 1, "body": 5},
+                                     ["not", "an", "object"]])
+def test_the_json_action_route_rejects_a_malformed_request(client, payload):
+    client.post("/setup?key=testkey123", json=GOOD_PAYLOAD)
+    assert _act(client, **payload).status_code == 400 if isinstance(payload, dict) else client.post("/api/act?key=testkey123", json=payload).status_code == 400
+
+
+def test_the_json_action_route_needs_a_json_body(client):
+    client.post("/setup?key=testkey123", json=GOOD_PAYLOAD)
+    assert client.post("/api/act?key=testkey123", data="nope").status_code == 400

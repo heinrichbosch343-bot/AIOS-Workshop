@@ -42,6 +42,8 @@ NOTIFY_EVERY = timedelta(minutes=30)
 # A person writing back. Bounces, auto-replies, warmup, our own mail and strangers are "filed away", not replies.
 REPLY_CATEGORIES = MODEL_CATEGORIES + ("unsubscribe", "complaint")
 SNIPPET = 600
+QUEUE_LIMIT = 50      # items a person can act on in one view
+WHOLE = 6000         # a draft is shown whole, because it is edited and approved from there; nothing real is longer
 _LOCK = threading.Lock()  # notify.json is read and rewritten whole
 
 
@@ -251,7 +253,7 @@ class Hosted:
                "online": False, "why_not": "", "replies": {"day": 0, "week": 0, "month": 0, "all": 0},
                "by_category_month": {}, "filed_away_month": 0,
                "drafts": {"waiting": 0, "approved": 0, "sent": 0, "skipped": 0, "failed": 0, "checking": 0},
-               "needs_you": 0, "recent": []}
+               "needs_you": 0, "recent": [], "queue": []}
         blockers = self.blockers()
         if blockers:
             out["why_not"] = blockers[0]
@@ -277,9 +279,29 @@ class Hosted:
                               "their_words": _clip(r["body"], SNIPPET), "draft_status": r["draft_status"] or "",
                               "draft": _clip(r["draft_body"], SNIPPET), "sent_at": r["sent_at"] or ""}
                              for r in store.recent_mails(REPLY_CATEGORIES, limit)]
+            out["queue"] = self._queue(store)
         finally:
             store.close()
         return out
+
+    @staticmethod
+    def _queue(store: Store, limit: int = QUEUE_LIMIT) -> list[dict]:
+        """Everything a person has to look at, in the review page's order, each with the number the action route needs."""
+        def draft(row, kind: str) -> dict:
+            return {"kind": kind, "id": row["id"], "from_name": _clip(row["from_name"], 80, True),
+                    "from_addr": _clip(row["from_addr"], 254, True), "mailbox": _clip(row["mailbox"], 254, True),
+                    "subject": _clip(row["subject"], 200, True), "category": row["category"],
+                    "their_words": _clip(row["their_body"], 3000), "draft": _clip(row["body"], WHOLE),
+                    "note": _clip(row["note"], 400), "verified": bool(row["verified"]), "attention_kind": ""}
+
+        items = [draft(r, "draft") for r in store.drafts("pending")] + [draft(r, "held") for r in store.drafts("held")]
+        items += [draft(r, "doubtful") for r in store.drafts("sending")] + [draft(r, "failed") for r in store.drafts("failed")]
+        items += [{"kind": "attention", "id": r["id"], "from_name": _clip(r["from_name"], 80, True),
+                   "from_addr": _clip(r["from_addr"], 254, True), "mailbox": _clip(r["mailbox"], 254, True),
+                   "subject": _clip(r["subject"], 200, True), "category": "", "their_words": _clip(r["body"], 3000),
+                   "draft": "", "note": _clip(r["note"], 400), "verified": bool(r["verified"]),
+                   "attention_kind": _clip(r["kind"], 60, True)} for r in store.open_attention()]
+        return items[:limit]
 
     @staticmethod
     def _online(enabled: bool, status: dict, interval_minutes: int, now: datetime) -> tuple[bool, str]:

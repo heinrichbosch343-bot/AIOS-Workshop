@@ -274,78 +274,91 @@ def _back(key: str, msg: str) -> HTMLResponse:
     return HTMLResponse(status_code=303, headers={"Location": f"/replies?key={quote(key, safe='')}&msg={quote(msg, safe='')}"})
 
 
+ACTIONS = ("approve", "skip", "retry", "settle", "resolve")
+
+
+def _do(action: str, item_id: int, body: str = "", force: bool = False, sent: bool = True) -> tuple[bool, str]:
+    """The one place a person's decision is carried out, for the review page and for the JSON route that the Replies page
+    inside Twenty uses. It never raises for a refusal: the reason comes back as the message."""
+    hosted = _hosted()
+    if action == "resolve":
+        store = hosted.store()
+        try:
+            done = store.resolve_attention(item_id)
+        finally:
+            store.close()
+        return done, "Marked reviewed." if done else "No open item with that number."
+    agent = _action_agent(hosted)
+    try:
+        if action == "approve":
+            agent.approve(item_id, body or None, force=force)
+            return True, f"Draft {item_id} approved."
+        if action == "skip":
+            agent.skip(item_id)
+            return True, f"Draft {item_id} skipped."
+        if action == "retry":
+            agent.retry(item_id)
+            return True, f"Draft {item_id} queued again."
+        if action == "settle":
+            agent.settle(item_id, delivered=sent)
+            return True, f"Draft {item_id} closed."
+    except (KeyError, ValueError) as exc:
+        return False, (f"Could not approve draft {item_id}: {exc}" if action == "approve" else str(exc))
+    finally:
+        agent.store.close()
+    return False, f"Unknown action {action}."
+
+
+@app.post("/api/act")
+async def act(request: Request):
+    """approve (with the edited words), skip, retry, settle or resolve, as JSON, for the Replies page inside Twenty.
+    A refused action answers 200 with ok false and the reason; only a malformed request is a 400."""
+    if not _authorised(request):
+        return _denied()
+    try:
+        payload = await request.json()
+    except Exception:  # noqa: BLE001
+        return JSONResponse({"error": "body must be JSON"}, status_code=400)
+    item_id = payload.get("id") if isinstance(payload, dict) else None
+    body = payload.get("body", "") if isinstance(payload, dict) else ""
+    if (not isinstance(payload, dict) or payload.get("action") not in ACTIONS or isinstance(item_id, bool)
+            or not isinstance(item_id, int) or item_id < 1 or not isinstance(body, str) or len(body) > 20000):
+        return JSONResponse({"error": "send {action: approve|skip|retry|settle|resolve, id: a number, body: text}"}, status_code=400)
+    ok, message = await asyncio.to_thread(_do, payload["action"], item_id, body, payload.get("force") is True,
+                                          payload.get("sent") is not False)
+    return {"ok": ok, "message": message}
+
+
 @app.post("/drafts/{draft_id}/approve")
 def approve(draft_id: int, request: Request, body: str = Form(""), force: str = Form("")):
     if not _authorised(request):
         return _denied()
-    key = request.query_params.get("key", "")
-    agent = _action_agent(_hosted())
-    try:
-        agent.approve(draft_id, body or None, force=bool(force))
-        msg = f"Draft {draft_id} approved."
-    except (KeyError, ValueError) as exc:
-        msg = f"Could not approve draft {draft_id}: {exc}"
-    finally:
-        agent.store.close()
-    return _back(key, msg)
+    return _back(request.query_params.get("key", ""), _do("approve", draft_id, body, bool(force))[1])
 
 
 @app.post("/drafts/{draft_id}/skip")
 def skip(draft_id: int, request: Request):
     if not _authorised(request):
         return _denied()
-    key = request.query_params.get("key", "")
-    agent = _action_agent(_hosted())
-    try:
-        agent.skip(draft_id)
-        msg = f"Draft {draft_id} skipped."
-    except KeyError as exc:
-        msg = str(exc)
-    finally:
-        agent.store.close()
-    return _back(key, msg)
+    return _back(request.query_params.get("key", ""), _do("skip", draft_id)[1])
 
 
 @app.post("/drafts/{draft_id}/retry")
 def retry(draft_id: int, request: Request):
     if not _authorised(request):
         return _denied()
-    key = request.query_params.get("key", "")
-    agent = _action_agent(_hosted())
-    try:
-        agent.retry(draft_id)
-        msg = f"Draft {draft_id} queued again."
-    except (KeyError, ValueError) as exc:
-        msg = str(exc)
-    finally:
-        agent.store.close()
-    return _back(key, msg)
+    return _back(request.query_params.get("key", ""), _do("retry", draft_id)[1])
 
 
 @app.post("/drafts/{draft_id}/settle")
 def settle(draft_id: int, request: Request, sent: str = "1"):
     if not _authorised(request):
         return _denied()
-    key = request.query_params.get("key", "")
-    agent = _action_agent(_hosted())
-    try:
-        agent.settle(draft_id, delivered=sent == "1")
-        msg = f"Draft {draft_id} closed."
-    except (KeyError, ValueError) as exc:
-        msg = str(exc)
-    finally:
-        agent.store.close()
-    return _back(key, msg)
+    return _back(request.query_params.get("key", ""), _do("settle", draft_id, sent=sent == "1")[1])
 
 
 @app.post("/attention/{attention_id}/resolve")
 def resolve(attention_id: int, request: Request):
     if not _authorised(request):
         return _denied()
-    key = request.query_params.get("key", "")
-    store = _hosted().store()
-    try:
-        msg = "Marked reviewed." if store.resolve_attention(attention_id) else "No open item with that number."
-    finally:
-        store.close()
-    return _back(key, msg)
+    return _back(request.query_params.get("key", ""), _do("resolve", attention_id)[1])

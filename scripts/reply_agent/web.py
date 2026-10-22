@@ -8,7 +8,7 @@ gives no personal data, the same convention as /invoices/ready and /quotebot/rea
 
 Env vars: REPLY_AGENT_KEY (required for anything guarded), ANTHROPIC_API_KEY (the model), REPLY_AGENT_ENABLED=1
 (turns on the background pass; a bare deploy does nothing), REPLY_AGENT_LIVE=1 (actually send; belt and suspenders
-on top of the config's own `live` flag), REPLY_AGENT_INTERVAL_MINUTES (default 5), REPLY_AGENT_DIR or Railway's
+on top of the config's own `live` flag), REPLY_AGENT_INTERVAL_MINUTES (default 1), REPLY_AGENT_DIR or Railway's
 own RAILWAY_VOLUME_MOUNT_PATH (where the private folder lives), PUBLIC_BASE_URL or RAILWAY_PUBLIC_DOMAIN (for the
 link in the "replies are waiting" email).
 """
@@ -80,11 +80,14 @@ def _llm() -> LLM:
     return AnthropicApi(os.environ["ANTHROPIC_API_KEY"])
 
 
+DEFAULT_INTERVAL_MINUTES = 1     # a reply is read and drafted within about a minute; one inbox check is a single cheap IMAP login
+
+
 def _interval_minutes() -> int:
     try:
-        return max(1, int(_clean_env("REPLY_AGENT_INTERVAL_MINUTES") or "5"))
+        return max(1, int(_clean_env("REPLY_AGENT_INTERVAL_MINUTES") or str(DEFAULT_INTERVAL_MINUTES)))
     except ValueError:
-        return 5
+        return DEFAULT_INTERVAL_MINUTES
 
 
 async def _background_loop() -> None:

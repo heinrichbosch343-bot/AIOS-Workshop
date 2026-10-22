@@ -241,7 +241,7 @@ class Hosted:
             return {}
 
     # --- what the Replies page inside Twenty shows ------------------------------------------------
-    def summary(self, *, enabled: bool, live: bool, interval_minutes: int = 5, limit: int = 20) -> dict:
+    def summary(self, *, enabled: bool, live: bool, interval_minutes: int = 1, limit: int = 20) -> dict:
         """Counts, the newest replies with what we drafted, and whether the agent is alive. It carries what people wrote,
         so the web layer only hands it out behind the key."""
         now = self.clock()

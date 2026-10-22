@@ -395,6 +395,18 @@ def test_summary_route_needs_the_key_and_reports_the_loop_switch(client, monkeyp
     assert client.get("/summary?key=testkey123").json()["online"] is True
 
 
+def test_the_inbox_is_checked_every_minute_unless_the_switch_says_otherwise(client, monkeypatch):
+    from reply_agent import web
+    monkeypatch.delenv("REPLY_AGENT_INTERVAL_MINUTES", raising=False)
+    assert web._interval_minutes() == 1
+    monkeypatch.setenv("REPLY_AGENT_INTERVAL_MINUTES", "3")
+    assert web._interval_minutes() == 3
+    monkeypatch.setenv("REPLY_AGENT_INTERVAL_MINUTES", "0")
+    assert web._interval_minutes() == 1                                      # never a tight loop
+    monkeypatch.setenv("REPLY_AGENT_INTERVAL_MINUTES", "soon")
+    assert web._interval_minutes() == 1                                      # nonsense falls back to the default, not to 5
+
+
 @pytest.mark.parametrize("path", ["/replies", "/setup"])
 def test_guarded_routes_refuse_without_the_right_key(client, path):
     method = client.post if path == "/setup" else client.get

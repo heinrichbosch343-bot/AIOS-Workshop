@@ -25,6 +25,10 @@ Written for Heinrich. Everything below is built into the app locally (branch `di
 
 Nov 2026: 33 (Braai Festival 14-15 Nov, Black Horse Christmas Market 29 Nov, Conquer the Trails 29 Nov, Gospel Festival, HAUS, retreats). Dec: 19 (Boathouse Affair at Pecanwood 5 Dec, Best Dam Trail 5 Dec, Padel Park Wellness Day 5 Dec, Christmas Day buffets and cruise). Jan-Apr 2027: 17 (monthly lectures, The Grind 6 Feb, **TROJAN Om Die Dam Sat 20 Mar 2027, confirmed by the organiser's own page**). Weekly (8): Welwitschia market, Sunday market at Laurentina, Padel Americano Thursdays, karaoke Fridays, Friday happy hour.
 
+## Pictures (added the same day)
+
+Pictures were taken from each business's own website only: 887 sites read, 567 gave a picture, six reviewers checked 1,209 pictures against strict rules (no faces, no children, no stock photos, no screenshots, nothing that is not that business). **359 businesses now have a main picture and 236 have extra ones** (about a quarter of the directory). The page says which website the pictures came from and keeps the fix-or-remove link. The rest keep the coloured band: 155 websites would not load, 86 had nothing to read, about 630 have no website. **Google Maps photos were not used on purpose** (they belong to Google and the people who uploaded them); say if you want them anyway, or want me to ask the top 100 businesses for a photo on WhatsApp.
+
 ## What I could not find (be honest with people about this)
 
 - **No New Year's Eve 2026/27 party, no Easter 2027, no carols, no Santa photos, no Black Friday event, nothing after late April.** Organisers have not posted yet. Re-run in late November.

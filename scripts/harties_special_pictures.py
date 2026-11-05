@@ -12,6 +12,7 @@ Stages (all free, no keys):
   sheets   contact sheets for the reviewers: one strip per special, its words, its best candidates
   apply    copy the pictures the reviewers picked into the app's media folder and set them on the specials
 
+  Add --set events to do the same for the events (pictures from the organisers' own pages); --part i/n shares `collect` between runs.
   uv run --no-project --system-certs --python 3.12 --with playwright --with pillow python scripts/harties_special_pictures.py collect [--only slug,slug]
   HF_HOME=Z:/aios-models/hf uv run --no-project --system-certs --python 3.12 --with torch --with transformers --with pillow --with truststore python scripts/harties_special_pictures.py rank
   uv run --no-project --system-certs --python 3.12 --with pillow python scripts/harties_special_pictures.py sheets
@@ -30,7 +31,16 @@ import urllib.parse
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "outputs" / "community-app" / "specials"
+BASE = ROOT / "outputs" / "community-app"
+# Two sets of promos get pictures this way. `specials`: the food specials. `events`: the events from organisers' pages.
+SETS = {
+    "specials": {"dir": "specials", "prefix": "spec", "pick": lambda p: p.get("origin") == "food-specials"},
+    "events": {"dir": "event-pictures", "prefix": "ev", "pick": lambda p: p.get("origin") == "events"},
+}
+SET = "specials"
+OG_ONLY = False
+OUT = BASE / SETS[SET]["dir"]
+SKIP_PAGES = re.compile(r"[.]pdf($|[?])|facebook[.]com|instagram[.]com|fb[.]me|wa[.]me", re.I)
 SEED = Path("C:/Users/gamin/BoschAI/harties-board/data/seed.local.json")
 MEDIA = Path("C:/Users/gamin/BoschAI/harties-board/public/media")
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36"
@@ -89,8 +99,9 @@ def clean_url(url):
     return urllib.parse.urlunparse((p.scheme, p.netloc, p.path, "", "", ""))
 
 
-def specials(seed, origin="food-specials"):
-    return [p for p in seed["promos"] if p.get("origin") == origin]
+def specials(seed):
+    """The promos of the chosen set."""
+    return [p for p in seed["promos"] if SETS[SET]["pick"](p)]
 
 
 def pages_by_business(seed, only=None):
@@ -104,7 +115,7 @@ def pages_by_business(seed, only=None):
             continue
         pages = out.setdefault(p["businessSlug"], {"name": b["name"], "pages": []})["pages"]
         for u in (p.get("sourceUrl"), b.get("website")):
-            if u and clean_url(u) not in pages:
+            if u and not SKIP_PAGES.search(u) and clean_url(u) not in pages:
                 pages.append(clean_url(u))
     return out
 
@@ -133,20 +144,105 @@ def ham(a, b):
     return bin(a ^ b).count("1")
 
 
-def collect(only):
+def cand_files():
+    return sorted(OUT.glob("candidates*.json"))
+
+
+def load_candidates():
+    """Every candidates*.json laid together; a business in two files gets both lists."""
+    merged = {}
+    for path in cand_files():
+        for slug, v in json.loads(path.read_text(encoding="utf-8")).items():
+            if slug in merged:
+                merged[slug]["candidates"] = merged[slug]["candidates"] + v["candidates"]
+                merged[slug]["texts"] = {**merged[slug].get("texts", {}), **v.get("texts", {})}
+                merged[slug]["pages"] = list(dict.fromkeys(merged[slug]["pages"] + v["pages"]))
+            else:
+                merged[slug] = v
+    return merged
+
+
+OG_META = re.compile(r"<meta[^>]+(?:property|name)=['\"]og:image['\"][^>]*>", re.I)
+OG_CONTENT = re.compile(r"content=['\"]([^'\"]+)['\"]", re.I)
+
+
+def og_images(html, base):
+    """The share pictures a page offers, as full addresses (a plain page fetch: it sees what a link preview sees)."""
+    out = []
+    for tag in OG_META.findall(html):
+        m = OG_CONTENT.search(tag)
+        if m:
+            out.append(urllib.parse.urljoin(base, m.group(1).strip()))
+    return out
+
+
+def collect_og(seed):
+    """For promos still without a picture: read each source page like a link preview does and keep its share picture.
+    Writes candidates-og.json (the same shape as `collect`), so ranking, review and apply work unchanged."""
+    import urllib.request
+    have = set()
+    for path in cand_files():
+        if path.name != "candidates-og.json":
+            have |= set(json.loads(path.read_text(encoding="utf-8")))
+    biz = {b["slug"]: b for b in seed["businesses"]}
+    decided = set()
+    for path in (OUT / "decisions").glob("*.json"):
+        decided |= {d["id"] for d in json.loads(path.read_text(encoding="utf-8")) if d.get("pick")}
+    out_file = OUT / "candidates-og.json"
+    results = json.loads(out_file.read_text(encoding="utf-8")) if out_file.exists() else {}
+    for p in specials(seed):
+        if p.get("image") or p["id"] in decided or not p.get("sourceUrl") or SKIP_PAGES.search(p["sourceUrl"]):
+            continue
+        slug, url = p["businessSlug"], clean_url(p["sourceUrl"])
+        entry = results.setdefault(slug, {"name": biz[slug]["name"], "pages": [], "candidates": [], "texts": {}})
+        if url in entry["pages"]:
+            continue
+        entry["pages"].append(url)
+        try:
+            req = urllib.request.Request(p["sourceUrl"], headers={"User-Agent": UA, "Accept-Language": "en"})
+            html = urllib.request.urlopen(req, timeout=20).read(600000).decode("utf-8", "replace")
+        except Exception as e:
+            print("   no page", p["id"][:50], str(e)[:50], flush=True)
+            continue
+        folder = OUT / "raw" / slug
+        folder.mkdir(parents=True, exist_ok=True)
+        for src in og_images(html, p["sourceUrl"])[:2]:
+            for url_try in dict.fromkeys([full_size(src), src]):
+                try:
+                    data = urllib.request.urlopen(urllib.request.Request(url_try.replace(" ", "%20"), headers={"User-Agent": UA}), timeout=20).read(6_000_000)
+                except Exception:
+                    continue
+                im = judge(data)
+                if im is None:
+                    continue
+                n = len(entry["candidates"]) + 1
+                im.thumbnail((1400, 1400))
+                im.save(folder / f"og-{n}.jpg", "JPEG", quality=80, optimize=True)
+                entry["candidates"].append({"file": f"{slug}/og-{n}.jpg", "src": src, "page": url, "alt": "og", "ctx": p["title"], "y": -1,
+                                            "w": im.size[0], "h": im.size[1], "ahash": ahash(im)})
+                print("   og picture", p["id"][:50], im.size, flush=True)
+                break
+    out_file.write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8", newline=chr(10))
+
+
+def collect(only, part=None):
+    """`part` = (i, n): this run takes every n-th business, so several runs can share the work (each writes its own file)."""
     from playwright.sync_api import sync_playwright
     seed = json.loads(SEED.read_text(encoding="utf-8"))
     plan = pages_by_business(seed, only)
+    if part:
+        plan = {k: v for j, (k, v) in enumerate(sorted(plan.items())) if j % part[1] == part[0]}
     (OUT / "raw").mkdir(parents=True, exist_ok=True)
+    out_file = OUT / (f"candidates-{part[0]}.json" if part else "candidates.json")
     results = {}
-    if (OUT / "candidates.json").exists():
-        results = json.loads((OUT / "candidates.json").read_text(encoding="utf-8"))
+    if out_file.exists():
+        results = json.loads(out_file.read_text(encoding="utf-8"))
     with sync_playwright() as pw:
         browser = pw.chromium.launch()
         ctx = browser.new_context(user_agent=UA, viewport={"width": 1280, "height": 900}, locale="en-ZA")
         for slug, info in plan.items():
             print("==", slug, info["pages"], flush=True)
-            cands, hashes = [], []
+            cands, hashes, texts = [], [], {}
             folder = OUT / "raw" / slug
             folder.mkdir(parents=True, exist_ok=True)
             for url in info["pages"]:
@@ -159,6 +255,7 @@ def collect(only):
                         page.wait_for_timeout(350)
                     page.wait_for_timeout(800)
                     found = page.evaluate(PAGE_JS)
+                    texts[url] = page.inner_text("body").strip()[:7000]
                 except Exception as e:
                     print("   page failed", url, str(e)[:80], flush=True)
                     page.close()
@@ -193,8 +290,8 @@ def collect(only):
                                   "w": im.size[0], "h": im.size[1], "ahash": h})
                 page.close()
             print(f"   {len(cands)} pictures kept", flush=True)
-            results[slug] = {"name": info["name"], "pages": info["pages"], "candidates": cands}
-            (OUT / "candidates.json").write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
+            results[slug] = {"name": info["name"], "pages": info["pages"], "candidates": cands, "texts": texts}
+            out_file.write_text(json.dumps(results, ensure_ascii=False, indent=1), encoding="utf-8", newline="\n")
         browser.close()
 
 
@@ -216,10 +313,13 @@ def rank():
     from PIL import Image
     from transformers import CLIPModel, CLIPProcessor
     seed = json.loads(SEED.read_text(encoding="utf-8"))
-    cand = json.loads((OUT / "candidates.json").read_text(encoding="utf-8"))
+    cand = load_candidates()
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").eval()
     proc = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
     negatives = ["a logo", "the outside of a restaurant building", "the inside of an empty restaurant", "a group of smiling people", "a map", "a page of text", "a landscape with water and hills"]
+    if SET == "events":
+        negatives = ["a logo", "a map", "a page of text", "a screenshot of a website", "a ticket office window"]
+    lead = "a photo of" if SET == "specials" else "a poster or photo for the event"
     ranked = {}
     for slug, info in cand.items():
         promos = [p for p in specials(seed) if p["businessSlug"] == slug]
@@ -230,7 +330,7 @@ def rank():
         prompts = []
         for p in promos:
             title, first = dish_text(p)
-            prompts.append(f"a photo of {title}")
+            prompts.append(f"{lead} {title}")
         texts = prompts + negatives
         with torch.no_grad():
             inputs = proc(text=texts, images=images, return_tensors="pt", padding=True, truncation=True)
@@ -247,8 +347,11 @@ def rank():
                 clip_p = float(probs[ci, pi])
                 clip_raw = float(logits[ci, pi])
                 bad = float(probs[ci, len(promos):].sum())
+                # a page's own share picture (og:image) on this event's own page is usually its poster
+                own_page = clean_url(p["sourceUrl"]) == c["page"] if p.get("sourceUrl") else False
+                bonus = (0.5 if c["alt"] == "og" and own_page else 0) + (0.15 if own_page else 0)
                 scored.append({"file": c["file"], "clip": round(clip_p, 3), "clipRaw": round(clip_raw, 1), "notFood": round(bad, 3), "words": hit,
-                               "score": round(clip_p + 0.6 * kw - 0.3 * bad, 3), "alt": c["alt"], "ctx": c["ctx"][:140], "w": c["w"], "h": c["h"], "src": c["src"], "page": c["page"]})
+                               "score": round(clip_p + 0.6 * kw - 0.3 * bad + bonus, 3), "alt": c["alt"], "ctx": c["ctx"][:140], "w": c["w"], "h": c["h"], "src": c["src"], "page": c["page"]})
             scored.sort(key=lambda s: -s["score"])
             ranked[p["id"]] = {"slug": slug, "business": info["name"], "title": p["title"], "details": p.get("details", ""), "candidates": scored[:TOP]}
         print(slug, len(files), "pictures,", len(promos), "specials", flush=True)
@@ -268,6 +371,8 @@ def sheets():
     except Exception:
         font = small = ImageFont.load_default()
     ids = list(ranked)
+    if OG_ONLY:  # only the promos that gained a share picture in the `og` pass
+        ids = [i for i in ids if any("/og-" in c["file"] for c in ranked[i]["candidates"])]
     per, cell_w, cell_h = 5, 300, 220
     index = []
     for s in range(0, len(ids), per):
@@ -302,7 +407,7 @@ def apply(seed_path, media_path):
     seed_file, media = Path(seed_path), Path(media_path)
     seed = json.loads(seed_file.read_text(encoding="utf-8"))
     ranked = json.loads((OUT / "ranked.json").read_text(encoding="utf-8"))
-    cands = json.loads((OUT / "candidates.json").read_text(encoding="utf-8"))
+    cands = load_candidates()
     decisions = {}
     for path in sorted((OUT / "decisions").glob("*.json")):  # later files win, so a fixes file can overrule a review
         for d in json.loads(path.read_text(encoding="utf-8")):
@@ -313,7 +418,7 @@ def apply(seed_path, media_path):
         d = decisions.get(p["id"])
         if not d or not d.get("pick") or p["id"] not in ranked:
             # a re-run replaces what an earlier run set, never a picture that came from somewhere else
-            if p.get("origin") == "food-specials" and p.get("imageFrom"):
+            if SETS[SET]["pick"](p) and p.get("imageFrom"):
                 p.pop("image", None)
                 p.pop("imageFrom", None)
             continue
@@ -326,11 +431,12 @@ def apply(seed_path, media_path):
         src = OUT / "raw" / c["file"]
         im = Image.open(src).convert("RGB")
         key = hashlib.sha1(src.read_bytes()).hexdigest()[:10]
-        name = f"spec-{key}.jpg"
+        prefix = SETS[SET]["prefix"]
+        name = f"{prefix}-{key}.jpg"
         im.save(media / name, "JPEG", quality=78, optimize=True)
         sm = im.copy()
         sm.thumbnail((640, 640))
-        sm.save(media / f"spec-{key}-sm.jpg", "JPEG", quality=72, optimize=True)
+        sm.save(media / f"{prefix}-{key}-sm.jpg", "JPEG", quality=72, optimize=True)
         p["image"] = f"/media/{name}"
         p["imageFrom"] = host_of(c["page"])[:60]
         set_count += 1
@@ -340,14 +446,23 @@ def apply(seed_path, media_path):
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
-    ap.add_argument("stage", choices=["collect", "rank", "sheets", "apply"])
+    ap.add_argument("stage", choices=["collect", "og", "rank", "sheets", "apply"])
+    ap.add_argument("--set", default="specials", choices=list(SETS))
+    ap.add_argument("--part", default="", help="i/n: take every n-th business (for parallel collect runs)")
+    ap.add_argument("--og-only", action="store_true", help="sheets: only the promos that gained a share picture")
     ap.add_argument("--only", default="")
     ap.add_argument("--seed", default=str(SEED))
     ap.add_argument("--media", default=str(MEDIA))
     args = ap.parse_args()
     only = {s for s in args.only.split(",") if s} or None
+    SET = args.set
+    OG_ONLY = args.og_only
+    OUT = BASE / SETS[SET]["dir"]
+    part = tuple(int(x) for x in args.part.split("/")) if args.part else None
     if args.stage == "collect":
-        collect(only)
+        collect(only, part)
+    elif args.stage == "og":
+        collect_og(json.loads(Path(args.seed).read_text(encoding="utf-8")))
     elif args.stage == "rank":
         rank()
     elif args.stage == "sheets":

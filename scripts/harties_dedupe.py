@@ -70,6 +70,20 @@ def dedupe(seed: dict, groups: list[dict]) -> tuple[dict, list[str]]:
     return {**seed, "businesses": businesses, "promos": promos}, log
 
 
+def dedupe_promos(seed: dict, groups: list[dict]) -> tuple[dict, list[str]]:
+    """Promos listed twice: {"keep": id, "remove": [ids]}. The one kept stays as it is; the others go."""
+    have = {p["id"] for p in seed["promos"]}
+    gone, log = set(), []
+    for g in groups:
+        if g["keep"] not in have:
+            continue
+        for rid in g["remove"]:
+            if rid in have and rid != g["keep"]:
+                gone.add(rid)
+                log.append(f"kept promo {g['keep']}, removed {rid} ({g.get('why', '')})")
+    return {**seed, "promos": [p for p in seed["promos"] if p["id"] not in gone]}, log
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--seed", default=str(SEED))
@@ -78,10 +92,12 @@ def main() -> None:
     args = ap.parse_args()
     seed_path = Path(args.seed)
     seed = json.loads(seed_path.read_text(encoding="utf-8"))
-    groups = json.loads(Path(args.dupes).read_text(encoding="utf-8"))["groups"]
-    out, log = dedupe(seed, groups)
+    data = json.loads(Path(args.dupes).read_text(encoding="utf-8"))
+    out, log = dedupe(seed, data["groups"])
+    out, promo_log = dedupe_promos(out, data.get("promos", []))
+    log += promo_log
     print("\n".join(log))
-    print(f"duplicates removed: {len(seed['businesses']) - len(out['businesses'])}")
+    print(f"duplicates removed: {len(seed['businesses']) - len(out['businesses'])} businesses, {len(seed['promos']) - len(out['promos'])} promos")
     if not args.dry:
         seed_path.write_text(json.dumps(out, ensure_ascii=False, indent=1) + "\n", encoding="utf-8", newline="\n")
 
